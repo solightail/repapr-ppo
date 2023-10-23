@@ -11,10 +11,12 @@ def program():
     del_freq: float = 1.0
     del_time: float = 0.0001
     amp: float = 1.0
-    model: str = 'narahashi'
+    init_model: str = 'narahashi'
+    re_model: str = 'USa1_v0'
 
     ''' 環境構築 '''
-    env = Multitone(type='US_v0', tones=tones, del_freq=del_freq, amp=amp)
+    env = Multitone(tones=tones, del_freq=del_freq, del_time=del_time, 
+                    amp=amp, init_model=init_model, re_model=re_model)
 
     ''' ハイパーパラメータ '''
     N = 20
@@ -41,7 +43,7 @@ def program():
     for i in range(n_calc):
         ''' 各試行 前処理 '''
         # 状態の初期化
-        observation, _ = env.reset(model)
+        observation, _ = env.reset()
 
         # terminated:
         #   終端状態になったかの判定
