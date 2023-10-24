@@ -1,7 +1,7 @@
 """ repapr-ppo's core """
 import numpy as np
 from .modules.repapr_ppo_torch import Agent
-from .modules.environments import Multitone
+from .modules.environments import MtEnv
 from .modules.utils import plot_learning_curve
 
 def program():
@@ -15,7 +15,7 @@ def program():
     re_model: str = 'USa1_v0'
 
     ''' 環境構築 '''
-    env = Multitone(tones=tones, del_freq=del_freq, del_time=del_time, 
+    env = MtEnv(tones=tones, del_freq=del_freq, del_time=del_time, 
                     amp=amp, init_model=init_model, re_model=re_model)
 
     ''' ハイパーパラメータ '''
