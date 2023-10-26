@@ -1,36 +1,25 @@
 """ repapr-ppo's core """
 import numpy as np
+from .args import param as p, hyper as h
+
 from .modules.repapr_ppo_torch import Agent
 from .modules.environments import MtEnv
 from .modules.utils import plot_learning_curve
 
 def program():
     """ Core Program """
-    ''' 入力変数 '''
-    tones: int = 10
-    del_freq: float = 1.0
-    del_time: float = 0.0001
-    amp: float = 1.0
-    init_model: str = 'narahashi'
-    re_model: str = 'USa1_v0'
 
     ''' 環境構築 '''
-    env = MtEnv(tones=tones, del_freq=del_freq, del_time=del_time, 
-                    amp=amp, init_model=init_model, re_model=re_model)
-
-    ''' ハイパーパラメータ '''
-    N = 20
-    batch_size = 5
-    n_epochs = 4
-    alpha = 0.0003
+    env = MtEnv(tones=p.tones, del_freq=p.del_freq, del_time=p.del_time, 
+                    amp=p.amp, init_model=p.init_model, re_model=p.re_model)
 
     ''' エージェント インスタンス作成 '''
-    agent = Agent(n_actions=env.n_action, batch_size=batch_size,
-                  alpha=alpha, n_epochs=n_epochs, input_dims=env.input_dims)
+    agent = Agent(n_actions=env.n_action, batch_size=h.batch_size,
+                  alpha=h.alpha, n_epochs=h.n_epochs, input_dims=env.input_dims)
 
     ''' 変数の初期化 '''
     n_calc = 300            # 試行回数
-    best_score = tones**2   # ベストスコア（default: -inf）
+    best_score = p.tones**2   # ベストスコア（default: -inf）
     score_history = []      # スコア記録
 
     learn_iters = 0         # 学習数
@@ -73,7 +62,7 @@ def program():
             # 実行した状態や行動などを記録
             agent.remember(observation, action, prob, val, reward, terminated, truncated)
             # 行動をN回（default: 20）した時に、学習を1度行う
-            if n_steps % N == 0:
+            if n_steps % h.N == 0:
                 agent.learn()
                 learn_iters += 1
             # 行動後の状態を行動前の状態に代入（ループ前処理）
