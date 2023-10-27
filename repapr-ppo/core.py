@@ -30,8 +30,8 @@ def program():
     del_freq: float = 1.0
     del_time: float = 0.0001
     amp: float = 1.0
-    init_model: str = 'random'
-    re_model: str = 'BSt_v0'
+    init_model: str = 'narahashi'
+    re_model: str = 'BSt_v1'
 
     ''' ハイパーパラメータ '''
     N: int = 10

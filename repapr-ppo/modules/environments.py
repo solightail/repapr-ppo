@@ -54,15 +54,27 @@ class MtEnv(gym.Env):
                 self.input_dims = 4
             case 'BFt_v0t':
                 self.input_dims = 4
+            case 'USo_v1':
+                self.input_dims = 1
+            case 'USt_v1':
+                self.input_dims = 2
+            case 'UFtSt_v1':
+                self.input_dims = 2
+            case 'BSo_v1':
+                self.input_dims = 2
+            case 'BSt_v1':
+                self.input_dims = 4
+            case 'BFt_v1':
+                self.input_dims = 4
         self.input_dims = (self.input_dims, )
 
         # 環境パラメータ
-        self.max_step: int = 100#*tones
+        self.max_step: int = 20#*tones
         # 1行動の大きさを指定 (値を大きくしすぎると大雑把になる)
         self.action_div: float = 0.002
         self.action_div_x: float = 1.0
         self.action_list = [-10, -1, 0, 1, 10]
-        self.reward_x = 10
+        self.reward_x = 1
         # action_space, observation_space, reward_range を設定する
         self.action_arr = np.array([self.action_list] * self.tones)
         self.n_action = len(self.action_list) ** self.tones
@@ -94,7 +106,7 @@ class MtEnv(gym.Env):
 
         # observation 計算
         self.ep_t_array = self._eptarr()
-        observation, _, _ = self._obreward(self.ep_t_array)
+        observation, _, _ = self._obreward()
 
         return observation, None
 
@@ -108,10 +120,13 @@ class MtEnv(gym.Env):
         self.ep_t_array = self._eptarr()
 
         # --- observation & reward ---
-        observation, reward, max2_upper_peaks_array = self._obreward(self.ep_t_array)
+        observation, reward_raw, up1h = self._obreward()
+        reward = reward_raw * self.reward_x
+        '''
         if np.all(each_action_tuple == 1):
             # actions において、1は停止となる
             reward = 0
+        '''
 
         # terminated
         # 時間制限による終了
@@ -123,13 +138,12 @@ class MtEnv(gym.Env):
 
         # truncated
         # エリア外等による強制終了
-        if (max2_upper_peaks_array[1][0] >= self.tones**2 or
-            self.tones+2 >= max2_upper_peaks_array[1][0]):
+        if (up1h <= self.tones+2 or self.tones**2 <= up1h):
             truncated = True
         else:
             truncated = False
 
-        return observation, reward*self.reward_x, terminated, truncated, None
+        return observation, reward, terminated, truncated, None
 
 
     def render(self, mode='human', close=False):
@@ -142,18 +156,17 @@ class MtEnv(gym.Env):
         ep_t_array = fepta.get(self.theta_k_values)
         return ep_t_array
 
-    # TODO: 増築を繰り返した結果、なんの値入れてるのか超わかりにくい状態なので、整理すること！
-    def _obreward(self, ep_t_array):
+    def _obreward(self):
         # ピーク値取得
-        upper_peaks, _ = find_peaks(ep_t_array, distance=10, plateau_size=1)
-        lower_peaks, _ = find_peaks(-ep_t_array, distance=10, plateau_size=1)
+        upper_peaks, _ = find_peaks(self.ep_t_array, distance=10, plateau_size=1)
+        lower_peaks, _ = find_peaks(-self.ep_t_array, distance=10, plateau_size=1)
 
         # find_peaks は t = 0 にピークがある場合を考慮していない。
         # 1周期でこれを判断することは不可能であるため、2周期分で判断をし、1周期分に戻す作業を行う。
-        two_cycle_ep_t_array = np.concatenate([ep_t_array, ep_t_array[1:]])
+        two_cycle_ep_t_array = np.concatenate([self.ep_t_array, self.ep_t_array[1:]])
         two_cycle_upper_peaks, _ = find_peaks(two_cycle_ep_t_array, distance=10, plateau_size=1)
         two_cycle_lower_peaks, _ = find_peaks(-two_cycle_ep_t_array, distance=10, plateau_size=1)
-        period: int = len(ep_t_array)-1
+        period: int = len(self.ep_t_array)-1
         if (period in two_cycle_upper_peaks):
             upper_peaks = np.concatenate([[0], upper_peaks, [period]])
         if (period in two_cycle_lower_peaks):
@@ -161,87 +174,96 @@ class MtEnv(gym.Env):
 
         # find_peaks 後処理
         # 最大ピークおよび準最大ピークの検出
-        upper_peaks_heights = np.take(ep_t_array, upper_peaks)
+        upper_peaks_heights = np.take(self.ep_t_array, upper_peaks)
         max2_reverse_upper_peaks = upper_peaks[np.argsort(upper_peaks_heights)][-2:]
-        lower_peaks_heights = np.take(ep_t_array, lower_peaks)
+        lower_peaks_heights = np.take(self.ep_t_array, lower_peaks)
         max2_reverse_lower_peaks = lower_peaks[np.argsort(lower_peaks_heights)][:2]
 
-        # observation 候補
-        #all_upper_peaks_array = np.array([np.take(self.time_values, upper_peaks), upper_peaks_heights])
-        #all_lower_peaks_array = np.array([np.take(self.time_values, lower_peaks), lower_peaks_heights])
-        #all_both_peaks_array = np.array([np.take(self.time_values, upper_peaks), upper_peaks_heights, np.take(self.time_values, lower_peaks), lower_peaks_heights])
-        max2_upper_peaks_array = np.array([np.take(self.time_values, max2_reverse_upper_peaks[::-1]), np.take(ep_t_array, max2_reverse_upper_peaks[::-1])])
-        max2_lower_peaks_array = np.array([np.take(self.time_values, max2_reverse_lower_peaks), np.take(ep_t_array, max2_reverse_lower_peaks)])
-        max2_both_peaks_array = np.array([np.take(self.time_values, max2_reverse_upper_peaks[::-1]), np.take(ep_t_array, max2_reverse_upper_peaks[::-1]),\
-                                           np.take(self.time_values, max2_reverse_lower_peaks), np.take(ep_t_array, max2_reverse_lower_peaks)])
-        max_upper_peaks_array = np.array([max2_upper_peaks_array[0][0], max2_upper_peaks_array[1][0]])
-        max_lower_peaks_array = np.array([max2_lower_peaks_array[0][0], max2_lower_peaks_array[1][0]])
-        max_both_peaks_array = np.array([max2_upper_peaks_array[0][0], max2_upper_peaks_array[1][0], max2_lower_peaks_array[0][0], max2_lower_peaks_array[1][0]])
+        # upper_peaks 平均・最大ピーク・準最大ピーク
+        upah = np.average(np.take(self.ep_t_array, upper_peaks))
+        up1t = np.take(self.time_values, max2_reverse_upper_peaks[1])
+        up1h = np.take(self.ep_t_array, max2_reverse_upper_peaks[1])
+        up2t = np.take(self.time_values, max2_reverse_upper_peaks[0])
+        up2h = np.take(self.ep_t_array, max2_reverse_upper_peaks[0])
+
+        # lower_peaks 平均・最大ピーク・準最大ピーク
+        loah = np.average(np.take(self.ep_t_array, lower_peaks))
+        lo1t = np.take(self.time_values, max2_reverse_lower_peaks[1])
+        lo1h = np.take(self.ep_t_array, max2_reverse_lower_peaks[1])
+        lo2t = np.take(self.time_values, max2_reverse_lower_peaks[0])
+        lo2h = np.take(self.ep_t_array, max2_reverse_lower_peaks[0])
 
         # モデル別 observation & reward の算出
         match self.re_model:
             case 'USa_v0':
-                avg_upper_peaks_height = np.average(np.take(ep_t_array, upper_peaks))
-                observation = np.array([avg_upper_peaks_height])
-                reward = (self.tones**2 - avg_upper_peaks_height) / (self.tones**2)
+                observation = np.array([upah])
+                reward = (self.tones**2 - upah) / (self.tones**2)
             case 'USo_v0':
-                observation = np.array([max_upper_peaks_array[1]])
-                reward = (self.tones**2 - max_upper_peaks_array[1]) / (self.tones**2)
+                observation = np.array([up1h])
+                reward = (self.tones**2 - up1h) / (self.tones**2)
             case 'USt_v0':
-                observation = np.array([max2_upper_peaks_array[1][0], max2_upper_peaks_array[1][1]])
-                reward = ((self.tones**2 - max2_upper_peaks_array[1][0]) + (self.tones**2 - max2_upper_peaks_array[1][1])) / (2 * self.tones**2)
+                observation = np.array([up1h, up2h])
+                reward = ((self.tones**2 - up1h) + (self.tones**2 - up2h)) / (2 * self.tones**2)
             case 'UFtSt_v0':
-                observation = np.array([max2_upper_peaks_array[1][0], max2_upper_peaks_array[1][1]])
-                reward = ((self.tones**2 - max2_upper_peaks_array[1][1]) - (max2_upper_peaks_array[1][0] - max2_upper_peaks_array[1][1])) / (self.tones**2)
+                observation = np.array([up1h, up2h])
+                reward = ((self.tones**2 - up2h) - (up1h - up2h)) / (self.tones**2)
             case 'BSa_v0':
-                avg_upper_peaks_height = np.average(np.take(ep_t_array, upper_peaks))
-                avg_lower_peaks_height = np.average(np.take(ep_t_array, lower_peaks))
-                observation = np.array([avg_upper_peaks_height, avg_lower_peaks_height])
-                reward = ((self.tones**2 - avg_upper_peaks_height) + avg_lower_peaks_height) / (2 * self.tones**2)
+                observation = np.array([upah, loah])
+                reward = ((self.tones**2 - upah) + loah) / (2 * self.tones**2)
             case 'BSo_v0':
-                observation = np.array([max_upper_peaks_array[1], max_lower_peaks_array[1]])
-                reward = ((self.tones**2 - max_upper_peaks_array[1]) + max_lower_peaks_array[1]) / (2 * self.tones**2)
+                observation = np.array([up1h, lo1h])
+                reward = ((self.tones**2 - up1h) + lo1h) / (2 * self.tones**2)
             case 'BSt_v0':
-                observation = np.array([max2_upper_peaks_array[1][0], max2_upper_peaks_array[1][1], max2_lower_peaks_array[1][0], max2_lower_peaks_array[1][1]])
-                reward = ((self.tones**2 - max2_upper_peaks_array[1][0]) + (self.tones**2 - max2_upper_peaks_array[1][1]) +\
-                          max2_lower_peaks_array[1][0] + max2_lower_peaks_array[1][1]) / (4 * self.tones**2)
+                observation = np.array([up1h, up2h, lo1h, lo2h])
+                reward = ((self.tones**2 - up1h) + (self.tones**2 - up2h) + lo1h + lo2h) / (4 * self.tones**2)
             case 'BFt_v0': # TODO: なんかおかしいので観ること！
-                observation = np.array([max2_upper_peaks_array[1][0], max2_upper_peaks_array[1][1], max2_lower_peaks_array[1][0], max2_lower_peaks_array[1][1]])
-                reward = ((max2_upper_peaks_array[1][0] - max2_lower_peaks_array[1][0]) + (max2_upper_peaks_array[1][1] - max2_lower_peaks_array[1][1])) / (2 * self.tones**2)
-            
+                observation = np.array([up1h, up2h, lo1h, lo2h])
+                reward = ((up1h - lo1h) + (up2h - lo2h)) / (2 * self.tones**2)
+
             # timeあり
-            case 'USa_v0t':
-                avg_upper_peaks_height = np.average(np.take(ep_t_array, upper_peaks))
-                observation = max2_upper_peaks_array
-                reward = (self.tones**2 - avg_upper_peaks_height) / (self.tones**2)
             case 'USo_v0t':
-                observation = max_upper_peaks_array
-                reward = (self.tones**2 - max_upper_peaks_array[1]) / (self.tones**2)
+                observation = np.array([up1t, up1h])
+                reward = (self.tones**2 - up1h) / (self.tones**2)
             case 'USt_v0t':
-                observation = max2_upper_peaks_array
-                reward = ((self.tones**2 - max2_upper_peaks_array[1][0]) + (self.tones**2 - max2_upper_peaks_array[1][1])) / (2 * self.tones**2)
+                observation = np.array([up1t, up1h, up2t, up2h])
+                reward = ((self.tones**2 - up1h) + (self.tones**2 - up2h)) / (2 * self.tones**2)
             case 'UFtSt_v0t':
-                observation = max2_upper_peaks_array
-                reward = ((self.tones**2 - max2_upper_peaks_array[1][1]) - (max2_upper_peaks_array[1][0] - max2_upper_peaks_array[1][1])) / (self.tones**2)
+                observation = np.array([up1t, up1h, up2t, up2h])
+                reward = ((self.tones**2 - up2h) - (up1h - up2h)) / (self.tones**2)
             case 'BSa_v0t':
-                avg_upper_peaks_height = np.average(np.take(ep_t_array, upper_peaks))
-                avg_lower_peaks_height = np.average(np.take(ep_t_array, lower_peaks))
-                observation = max2_both_peaks_array
-                reward = ((self.tones**2 - avg_upper_peaks_height) + avg_lower_peaks_height) / (2 * self.tones**2)
+                observation = np.array([upah, loah])
+                reward = ((self.tones**2 - upah) + loah) / (2 * self.tones**2)
             case 'BSo_v0t':
-                observation = max_both_peaks_array
-                reward = ((self.tones**2 - max_upper_peaks_array[1]) + max_lower_peaks_array[1]) / (2 * self.tones**2)
+                observation = np.array([up1t, up1h, lo1t, lo1h])
+                reward = ((self.tones**2 - up1h) + lo1h) / (2 * self.tones**2)
             case 'BSt_v0t':
-                observation = max2_both_peaks_array
-                reward = ((self.tones**2 - max2_upper_peaks_array[1][0]) + (self.tones**2 - max2_upper_peaks_array[1][1]) +\
-                          max2_lower_peaks_array[1][0] + max2_lower_peaks_array[1][1]) / (4 * self.tones**2)
+                observation = np.array([up1t, up1h, up2t, up2h, lo1t, lo1h, lo2t, lo2h])
+                reward = ((self.tones**2 - up1h) + (self.tones**2 - up2h) + lo1h + lo2h) / (4 * self.tones**2)
             case 'BFt_v0t':
-                observation = max2_both_peaks_array
-                reward = ((max2_upper_peaks_array[1][0] - max2_lower_peaks_array[1][0]) + (max2_upper_peaks_array[1][1] - max2_lower_peaks_array[1][1])) / (2 * self.tones**2)
+                observation = np.array([up1t, up1h, up2t, up2h, lo1t, lo1h, lo2t, lo2h])
+                reward = ((up1h - lo1h) + (up2h - lo2h)) / (2 * self.tones**2)
 
-        return observation, reward, max2_upper_peaks_array
+            # v1's
+            case 'USo_v1':
+                observation = np.array([up1h])
+                reward = (self.tones+2 - up1h)
+            case 'USt_v1':
+                observation = np.array([up1h, up2h])
+                reward = (self.tones+2 - up1h) + (self.tones+2 - up2h)
+            case 'UFtSt_v1':
+                observation = np.array([up1h, up2h])
+                reward = (self.tones+2 - up1h) + (self.tones+2 - up2h) - (up1h - up2h)
+            case 'BSo_v1':
+                observation = np.array([up1h, lo1h])
+                reward = (self.tones+2 - up1h) + (lo1h - self.tones-2)
+            case 'BSt_v1':
+                observation = np.array([up1h, up2h, lo1h, lo2h])
+                reward = (self.tones+2 - up1h) + (lo1h - self.tones-2) + (self.tones+2 - up2h) + (lo2h - self.tones-2)
+            case 'BFt_v1':
+                observation = np.array([up1h, up2h, lo1h, lo2h])
+                reward = (self.tones+2 - up1h) + (lo1h - self.tones-2) + (self.tones+2 - up2h) + (lo2h - self.tones-2) - (up1h - up2h) - (lo2h - lo1h)
 
-
+        return observation, reward, up1h
 
 
 class Multitone:
