@@ -139,8 +139,8 @@ class Agent:
         self.critic.load_checkpoint()
 
     def choose_action(self, observation):
-        # 現在の状態
-        state = T.tensor([observation], dtype=T.float).to(self.actor.device)
+        # 現在の状態 | observation を ndarray で入れると遅いようなので、array に変換してる
+        state = T.tensor(np.array([observation]), dtype=T.float).to(self.actor.device)
 
         # 現在の状態に対する各行動の確率
         dist = self.actor(state)
@@ -163,6 +163,9 @@ class Agent:
             state_arr, action_arr, old_prob_arr, vals_arr, \
             reward_arr, terminated_arr, truncated_arr, batches = self.memory.generate_batches()
 
+            if(_ == 0):
+                # CLI表示
+                print(f"action: {action_arr}")
 
             # --- アドバンテージの算出（ベクトル化が可能だと思われるが脳が足りない）---
             # 状態改善量：前行動に対して現状態の価値がどれぐらい改善されるか（改善量）を示すもの

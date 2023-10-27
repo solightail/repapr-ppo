@@ -22,14 +22,14 @@ class Narahashi(Algorithm):
     """ Narahashi Algorithm """
     def calc(self) -> np.ndarray[float]:
         indexes: np.ndarray = np.arange(self.tones)
-        theta_k_values: np.ndarray[float] = ((indexes) * (indexes - 1) * math.pi) / (self.tones - 1)
+        theta_k_values: np.ndarray[float] = ((indexes) * (indexes - 1) * np.pi) / (self.tones - 1)
         return np.array(theta_k_values, dtype='float16')
 
 class Newman(Algorithm):
     """ Newman Algorithm """
     def calc(self) -> np.ndarray[float]:
         indexes: np.NDArray = np.arange(self.tones)
-        theta_k_values: np.ndarray[float] = ((indexes - 1)**2 * math.pi) / (self.tones)
+        theta_k_values: np.ndarray[float] = ((indexes - 1)**2 * np.pi) / (self.tones)
         return np.array(theta_k_values, dtype='float16')
 
 class Random(Algorithm):

@@ -1,5 +1,7 @@
 venv
 .vscode
+tmp
+plots
 __pycache__
 /out/**/*.csv
 /out/**/*.svg

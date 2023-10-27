@@ -1,5 +1,5 @@
-from .algorithms import Algorithm as algo, AContext
-from .calc import Formula, FEPtA
+from . import algorithms as algo
+from . import calc
 
 import numpy as np
 import gym
@@ -27,17 +27,17 @@ class MtEnv(gym.Env):
             case 'USo_v0':
                 self.input_dims = 1
             case 'USt_v0':
-                self.input_dims = 1
+                self.input_dims = 2
             case 'UFtSt_v0':
-                self.input_dims = 1
+                self.input_dims = 2
             case 'BSa_v0':
                 self.input_dims = 2
             case 'BSo_v0':
                 self.input_dims = 2
             case 'BSt_v0':
-                self.input_dims = 2
+                self.input_dims = 4
             case 'BFt_v0':
-                self.input_dims = 2
+                self.input_dims = 4
             case 'USa_v0t':
                 self.input_dims = 2
             case 'USo_v0t':
@@ -54,17 +54,22 @@ class MtEnv(gym.Env):
                 self.input_dims = 4
             case 'BFt_v0t':
                 self.input_dims = 4
+        self.input_dims = (self.input_dims, )
 
         # 環境パラメータ
-        self.max_step: int = 100*tones
+        self.max_step: int = 100#*tones
         # 1行動の大きさを指定 (値を大きくしすぎると大雑把になる)
-        self.action_div: float = 2.0
+        self.action_div: float = 0.002
+        self.action_div_x: float = 1.0
+        self.action_list = [-10, -1, 0, 1, 10]
+        self.reward_x = 10
         # action_space, observation_space, reward_range を設定する
-        self.action_space = gym.spaces.Discrete(3**self.tones)
-        self.action_arr = np.array([-1, 0, 1] * self.tones)
+        self.action_arr = np.array([self.action_list] * self.tones)
+        self.n_action = len(self.action_list) ** self.tones
+        self.action_space = gym.spaces.Discrete(self.n_action)
         self.init_observation = np.ones(self.input_dims) * (self.tones**2)
         self.observation_space = gym.spaces.Box(low=0, high=self.tones**2, shape=self.init_observation.shape)
-        self.reward_range = np.array([0, 1])
+        self.reward_range = np.array([0, 1*self.reward_x])
         self.reset()
 
 
@@ -84,29 +89,34 @@ class MtEnv(gym.Env):
                 strategy = algo.Manual(self.tones, self.manual)
 
         # theta_k 計算
-        algo_context = AContext(strategy)
+        algo_context = algo.AContext(strategy)
         self.theta_k_values = algo_context.calc_algo()
 
         # observation 計算
-        ep_t_array = self._eptarr()
-        observation, _, _ = self._obreward(ep_t_array)
+        self.ep_t_array = self._eptarr()
+        observation, _, _ = self._obreward(self.ep_t_array)
 
-        return observation
+        return observation, None
 
 
     def step(self, action):
         # --- exec action ---
-        actions = np.unravel_index(action, (3,) * self.num_carts)
+        # action を各トーンごとに分解
+        each_action_tuple = np.unravel_index(action, (len(self.action_list),) * self.tones)
         for i in range(self.tones):
-            self.theta_k_values[i] = self.theta_k_values[i] + (actions[i][actions[i]]*2*np.pi*self.action_div)
-        ep_t_array = self._eptarr()
+            self.theta_k_values[i] = self.theta_k_values[i] + ((self.action_arr[i][each_action_tuple[i]])*2*np.pi*self.action_div*self.action_div_x)
+        self.ep_t_array = self._eptarr()
 
         # --- observation & reward ---
-        observation, reward, max2_upper_peaks_array = self._obreward(ep_t_array)
+        observation, reward, max2_upper_peaks_array = self._obreward(self.ep_t_array)
+        if np.all(each_action_tuple == 1):
+            # actions において、1は停止となる
+            reward = 0
 
         # terminated
         # 時間制限による終了
-        if (self.steps > self.max_step):
+        self.steps += 1
+        if (self.steps >= self.max_step):
             terminated = True
         else:
             terminated = False
@@ -114,12 +124,12 @@ class MtEnv(gym.Env):
         # truncated
         # エリア外等による強制終了
         if (max2_upper_peaks_array[1][0] >= self.tones**2 or
-            self.tones+1 >= max2_upper_peaks_array[1][0]):
+            self.tones+2 >= max2_upper_peaks_array[1][0]):
             truncated = True
         else:
             truncated = False
 
-        return observation, reward, terminated, truncated, None
+        return observation, reward*self.reward_x, terminated, truncated, None
 
 
     def render(self, mode='human', close=False):
@@ -127,8 +137,8 @@ class MtEnv(gym.Env):
 
 
     def _eptarr(self):
-        formula = Formula(self.tones, self.del_freq, self.amp)
-        fepta = FEPtA(formula, self.del_time)
+        formula = calc.Formula(self.tones, self.del_freq, self.amp)
+        fepta = calc.FEPtA(formula, self.del_time)
         ep_t_array = fepta.get(self.theta_k_values)
         return ep_t_array
 
@@ -157,9 +167,9 @@ class MtEnv(gym.Env):
         max2_reverse_lower_peaks = lower_peaks[np.argsort(lower_peaks_heights)][:2]
 
         # observation 候補
-        all_upper_peaks_array = np.array([np.take(self.time_values, upper_peaks), upper_peaks_heights])
-        all_lower_peaks_array = np.array([np.take(self.time_values, lower_peaks), lower_peaks_heights])
-        all_both_peaks_array = np.array([np.take(self.time_values, upper_peaks), upper_peaks_heights, np.take(self.time_values, lower_peaks), lower_peaks_heights])
+        #all_upper_peaks_array = np.array([np.take(self.time_values, upper_peaks), upper_peaks_heights])
+        #all_lower_peaks_array = np.array([np.take(self.time_values, lower_peaks), lower_peaks_heights])
+        #all_both_peaks_array = np.array([np.take(self.time_values, upper_peaks), upper_peaks_heights, np.take(self.time_values, lower_peaks), lower_peaks_heights])
         max2_upper_peaks_array = np.array([np.take(self.time_values, max2_reverse_upper_peaks[::-1]), np.take(ep_t_array, max2_reverse_upper_peaks[::-1])])
         max2_lower_peaks_array = np.array([np.take(self.time_values, max2_reverse_lower_peaks), np.take(ep_t_array, max2_reverse_lower_peaks)])
         max2_both_peaks_array = np.array([np.take(self.time_values, max2_reverse_upper_peaks[::-1]), np.take(ep_t_array, max2_reverse_upper_peaks[::-1]),\
@@ -175,7 +185,7 @@ class MtEnv(gym.Env):
                 observation = np.array([avg_upper_peaks_height])
                 reward = (self.tones**2 - avg_upper_peaks_height) / (self.tones**2)
             case 'USo_v0':
-                observation = np.array([max_upper_peaks_array][1])
+                observation = np.array([max_upper_peaks_array[1]])
                 reward = (self.tones**2 - max_upper_peaks_array[1]) / (self.tones**2)
             case 'USt_v0':
                 observation = np.array([max2_upper_peaks_array[1][0], max2_upper_peaks_array[1][1]])
@@ -189,14 +199,14 @@ class MtEnv(gym.Env):
                 observation = np.array([avg_upper_peaks_height, avg_lower_peaks_height])
                 reward = ((self.tones**2 - avg_upper_peaks_height) + avg_lower_peaks_height) / (2 * self.tones**2)
             case 'BSo_v0':
-                observation = np.array([max_both_peaks_array[1]])
+                observation = np.array([max_upper_peaks_array[1], max_lower_peaks_array[1]])
                 reward = ((self.tones**2 - max_upper_peaks_array[1]) + max_lower_peaks_array[1]) / (2 * self.tones**2)
             case 'BSt_v0':
-                observation = np.array([max2_both_peaks_array[1][0], max2_both_peaks_array[1][1]])
+                observation = np.array([max2_upper_peaks_array[1][0], max2_upper_peaks_array[1][1], max2_lower_peaks_array[1][0], max2_lower_peaks_array[1][1]])
                 reward = ((self.tones**2 - max2_upper_peaks_array[1][0]) + (self.tones**2 - max2_upper_peaks_array[1][1]) +\
                           max2_lower_peaks_array[1][0] + max2_lower_peaks_array[1][1]) / (4 * self.tones**2)
-            case 'BFt_v0':
-                observation = np.array([max2_both_peaks_array[1][0], max2_both_peaks_array[1][1]])
+            case 'BFt_v0': # TODO: なんかおかしいので観ること！
+                observation = np.array([max2_upper_peaks_array[1][0], max2_upper_peaks_array[1][1], max2_lower_peaks_array[1][0], max2_lower_peaks_array[1][1]])
                 reward = ((max2_upper_peaks_array[1][0] - max2_lower_peaks_array[1][0]) + (max2_upper_peaks_array[1][1] - max2_lower_peaks_array[1][1])) / (2 * self.tones**2)
             
             # timeあり
