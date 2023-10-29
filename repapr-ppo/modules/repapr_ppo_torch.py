@@ -57,7 +57,7 @@ class PPOMemory:
         self.truncateds = []
 
 class ActorNetwork(nn.Module):
-    def __init__(self, n_actions, input_dims, alpha, fc1_dims=256, fc2_dims=256, chkpt_dir='tmp/ppo'):
+    def __init__(self, n_actions, input_dims, alpha, fc1_dims=256, fc2_dims=256, chkpt_dir='repapr-ppo/out/ppo'):
         super(ActorNetwork, self).__init__()
 
         self.checkpoint_file = os.path.join(chkpt_dir, 'actor_torch_ppo')
@@ -70,7 +70,7 @@ class ActorNetwork(nn.Module):
             nn.Softmax(dim=-1)
         )
 
-        self.optimizer = optim.Adam(self.parameters(), lr=alpha)
+        self.optimizer = optim.RAdam(self.parameters(), lr=alpha)
         self.device = T.device('cuda:0' if T.cuda.is_available() else 'cpu')
         self.to(self.device)
 
@@ -87,7 +87,7 @@ class ActorNetwork(nn.Module):
         self.load_state_dict(T.load(self.checkpoint_file))
 
 class CriticNetwork(nn.Module):
-    def __init__(self, input_dims, alpha, fc1_dims=256, fc2_dims=256, chkpt_dir='tmp/ppo'):
+    def __init__(self, input_dims, alpha, fc1_dims=256, fc2_dims=256, chkpt_dir='repapr-ppo/out/ppo'):
         super(CriticNetwork, self).__init__()
 
         self.checkpoint_file = os.path.join(chkpt_dir, 'critic_torch_ppo')
@@ -99,7 +99,7 @@ class CriticNetwork(nn.Module):
             nn.Linear(fc2_dims, 1)
         )
 
-        self.optimizer = optim.Adam(self.parameters(), lr=alpha)
+        self.optimizer = optim.RAdam(self.parameters(), lr=alpha)
         self.device = T.device('cuda:0' if T.cuda.is_available() else 'cpu')
         self.to(self.device)
 
@@ -115,14 +115,14 @@ class CriticNetwork(nn.Module):
         self.load_state_dict(T.load(self.checkpoint_file))
 
 class Agent:
-    def __init__(self, n_actions, input_dims, gamma=0.99, alpha=0.0003, gae_lambda=0.95, policy_clip=0.2, batch_size=64, N=2048, n_epochs=10):
+    def __init__(self, n_actions, input_dims, gamma=0.99, alpha=0.0003, gae_lambda=0.95, policy_clip=0.2, batch_size=64, N=2048, n_epochs=10, chkpt_dir=None):
         self.gamma = gamma
         self.policy_clip = policy_clip
         self.n_epochs = n_epochs
         self.gae_lambda = gae_lambda
 
-        self.actor = ActorNetwork(n_actions, input_dims, alpha)
-        self.critic = CriticNetwork(input_dims, alpha)
+        self.actor = ActorNetwork(n_actions, input_dims, alpha, chkpt_dir=chkpt_dir)
+        self.critic = CriticNetwork(input_dims, alpha, chkpt_dir=chkpt_dir)
         self.memory = PPOMemory(batch_size)
 
     def remember(self, state, action, probs, vals, reward, terminated, truncated):
@@ -163,9 +163,9 @@ class Agent:
             state_arr, action_arr, old_prob_arr, vals_arr, \
             reward_arr, terminated_arr, truncated_arr, batches = self.memory.generate_batches()
 
-            if(_ == 0):
+            #if(_ == 0):
                 # CLI表示
-                print(f"action: {action_arr}")
+                #print(f"action: {action_arr}")
 
             # --- アドバンテージの算出（ベクトル化が可能だと思われるが脳が足りない）---
             # 状態改善量：前行動に対して現状態の価値がどれぐらい改善されるか（改善量）を示すもの
@@ -246,6 +246,3 @@ class Agent:
 
             # 次の学習のため、メモリを初期化
             self.memory.clear_memomry()
-
-    def printversion(self) -> None:
-        print(f'\n{T.__version__}')
