@@ -74,6 +74,19 @@ class MtEnv(gym.Env):
             case 'BFt_v1':
                 self.input_dims = 4
 
+            case 'USto_v1':
+                self.input_dims = 2
+            case 'UFtSto_v1':
+                self.input_dims = 2
+            case 'BSto_v1':
+                self.input_dims = 2
+            case 'BStt_v1':
+                self.input_dims = 4
+            case 'BFto_v1':
+                self.input_dims = 2
+            case 'BFtt_v1':
+                self.input_dims = 4
+
         self.input_dims = (self.input_dims, )
 
         # action_space, observation_space, reward_range を設定する
@@ -262,6 +275,26 @@ class MtEnv(gym.Env):
                 reward = (self.tones+2 - up1h) + (lo1h - self.tones-2) + (self.tones+2 - up2h) + (lo2h - self.tones-2)
             case 'BFt_v1':
                 observation = np.array([up1h, up2h, lo1h, lo2h])
+                reward = (self.tones+2 - up1h) + (lo1h - self.tones-2) + (self.tones+2 - up2h) + (lo2h - self.tones-2) - (up1h - up2h) - (lo2h - lo1h)
+
+            # to's / tt's
+            case 'USto_v1':
+                observation = np.array([[up1h, up2h]])
+                reward = (self.tones+2 - up1h) + (self.tones+2 - up2h)
+            case 'UFtSto_v1':
+                observation = np.array([[up1h, up2h]])
+                reward = (self.tones+2 - up1h) + (self.tones+2 - up2h) - (up1h - up2h)
+            case 'BSto_v1':
+                observation = np.array([[up1h, up2h, lo1h, lo2h]])
+                reward = (self.tones+2 - up1h) + (lo1h - self.tones-2) + (self.tones+2 - up2h) + (lo2h - self.tones-2)
+            case 'BStt_v1':
+                observation = np.array([[up1h, up2h], [lo1h, lo2h]])
+                reward = (self.tones+2 - up1h) + (lo1h - self.tones-2) + (self.tones+2 - up2h) + (lo2h - self.tones-2)
+            case 'BFto_v1':
+                observation = np.array([[up1h, up2h, lo1h, lo2h]])
+                reward = (self.tones+2 - up1h) + (lo1h - self.tones-2) + (self.tones+2 - up2h) + (lo2h - self.tones-2) - (up1h - up2h) - (lo2h - lo1h)
+            case 'BFtt_v1':
+                observation = np.array([[up1h, up2h], [lo1h, lo2h]])
                 reward = (self.tones+2 - up1h) + (lo1h - self.tones-2) + (self.tones+2 - up2h) + (lo2h - self.tones-2) - (up1h - up2h) - (lo2h - lo1h)
 
         return observation, reward, up1h
