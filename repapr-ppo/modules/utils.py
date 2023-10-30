@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+import json
+import requests
 
 def rt_plot_init(time_values, ept_values):
     lines, = plt.plot(time_values, ept_values)
@@ -51,3 +53,12 @@ def write_csv(epi, sco, avgsco, act_list, tk_list, m_ept_list, m_pw_list, m_pd_l
         df.to_csv(path)
     else:
         df.to_csv(path, mode='a', header=False)
+
+def send_line(channel_token, user_id, text):
+    url = 'https://api.line.me/v2/bot/message/push'
+    headers = {'Content-Type': 'application/json', 'Authorization': f'Bearer {channel_token}'}
+    post = {'to': user_id, 'messages': [{'type': 'text', 'text': text}]}
+    req = requests.post(url, headers=headers, data=json.dumps(post))
+
+    if req.status_code != 200:
+        print(req.text)

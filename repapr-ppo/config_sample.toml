@@ -1,0 +1,37 @@
+# This is a TOML document
+
+title = "repapr-ppo config file"
+
+[input] # 入力変数
+tones = 4
+del_freq = 1.0
+del_time = 0.0001
+amp = 1.0
+init_model = "narahashi"
+manual = ""
+re_model = "USo_v1"
+
+[addproc] # 追加処理
+load_data = false
+rt_graph = true
+notify = true
+
+[param] # 環境パラメータ
+max_step = 20#*tones                # 1エピソードあたりのステップ上限
+action_div = 0.002                  # 行動の大きさを指定 (値を大きくしすぎると大雑把になる)
+action_list = [-10, -1, 0, 1, 10]   # 行動の選択肢
+reward_x = 1.0                      # スコアを見やすくするための倍数
+
+[hyper] # ハイパーパラメータ
+N = 10
+batch_size = 5
+n_epochs = 4
+alpha = 0.0003
+
+[score] # スコア処理パラメータ
+avg_init = 25
+avg_calc = 50
+
+[line]
+channel_token = ""
+user_id = ""

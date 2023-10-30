@@ -1,39 +1,54 @@
 """ repapr-ppo's core """
 import os
+import tomllib
 import numpy as np
 
 from .modules.repapr_ppo_torch import Agent
 from .modules.environments import MtEnv
 from .modules.utils import rt_plot_init, rt_plot_reload,\
-        close_plot, plot_learning_curve, write_csv
+        close_plot, plot_learning_curve, write_csv, send_line
 
 def program():
     """ Core Program """
 
-    # 入力変数
-    tones: int = 4
-    del_freq: float = 1.0
-    del_time: float = 0.0001
-    amp: float = 1.0
-    init_model: str = "narahashi"
-    manual: list = None
-    re_model: str = "USo_v1"
+    # 設定ファイルの読み込み
+    with open('repapr-ppo/config.toml', 'rb') as file:
+        data = tomllib.load(file)
 
-    # 処理関連
-    load_data: bool = True
-    rt_graph: bool = True
+    # 入力変数
+    tones: int = data['input']['tones']
+    del_freq: float = data['input']['del_freq']
+    del_time: float = data['input']['del_time']
+    amp: float = data['input']['amp']
+    init_model: str = data['input']['init_model']
+    manual: list = data['input']['manual']
+    re_model: str = data['input']['re_model']
+
+    # 追加処理
+    load_data: bool = data['addproc']['load_data']
+    rt_graph: bool = data['addproc']['rt_graph']
+    notify: bool = data['addproc']['notify']
 
     # 環境パラメータ
-    max_step: int = 20#*tones               # 1エピソードあたりのステップ上限
-    action_div: float = 0.002               # 行動の大きさを指定 (値を大きくしすぎると大雑把になる)
-    action_list = [-10, -1, 0, 1, 10]       # 行動の選択肢
-    reward_x: float = 1.0                   # スコアを見やすくするための倍数
+    max_step: int = data['param']['max_step'] #* tones
+    action_div: float = data['param']['action_div']
+    action_list: list = data['param']['action_list']
+    reward_x: float = data['param']['reward_x']
 
     # ハイパーパラメータ
-    N: int = 10
-    batch_size: int = 5
-    n_epochs: int = 4
-    alpha: float = 0.0003
+    N: int = data['hyper']['N']
+    batch_size: int = data['hyper']['batch_size']
+    n_epochs: int = data['hyper']['n_epochs']
+    alpha: float = data['hyper']['alpha']
+
+    # スコア処理パラメータ
+    score_avg_init = data['score']['avg_init']
+    score_avg_calc = data['score']['avg_calc']
+
+    # LINE Token
+    channel_token = data['line']['channel_token']
+    user_id = data['line']['user_id']
+
 
     # 変数の初期化
     n_calc = 300            # 試行回数
@@ -45,7 +60,7 @@ def program():
     n_steps = 0             # 行動回数
 
     # 学習データ保存フォルダ 準備
-    dir_name: str = f"{init_model}-{re_model}-{max_step}-{N}-{batch_size}"
+    dir_name: str = f"{tones}-{init_model}-{re_model}-{max_step}-{N}-{batch_size}"
     chkpt_dir = f"repapr-ppo/out/ppo/{dir_name}"
     if not os.path.exists(chkpt_dir):
         os.mkdir(chkpt_dir)
@@ -130,10 +145,10 @@ def program():
         # スコアを記録リストへ追加
         score_history.append(score)
         # 平均スコアの算出
-        avg_score = np.mean(score_history[-50:])
+        avg_score = np.mean(score_history[-score_avg_calc:])
 
         # 平均スコアが、ベストスコア（過去の平均スコア）よりも高い場合、ベストスコアの更新と、モデルのセーブを行う
-        if i >= 25:
+        if i >= score_avg_init:
             if avg_score > best_score:
                 best_score = avg_score
                 agent.save_models()
@@ -155,3 +170,6 @@ def program():
     # 学習結果 グラフ保存
     x = [i+1 for i in range(len(score_history))]
     plot_learning_curve(x, score_history, figure_file)
+    # LINE 通知
+    message = f"repapr-ppo\n{dir_name}\n全てのエピソードの演算が完了しました。出力データより解析を行ってください。"
+    send_line(channel_token, user_id, message)

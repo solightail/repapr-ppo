@@ -1,8 +1,12 @@
 venv
 .vscode
+
 tmp
 plots
 miss_max
+
+config.toml
+
 __pycache__
 /out/**/*.csv
 /out/**/*.svg
