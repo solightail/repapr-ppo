@@ -1,8 +1,16 @@
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import json
 import requests
+
+def new_file(path, filename, extension) -> str:
+    i = 1
+    while os.path.exists(f'{path}/{filename}-{i}.{extension}'):
+        i += 1
+    return f'{path}/{filename}-{i}.{extension}'
+
 
 def rt_plot_init(time_values, ept_values):
     lines, = plt.plot(time_values, ept_values)
@@ -47,8 +55,8 @@ def write_csv(epi, sco, avgsco, act_list, tk_list, m_ept_list, m_pw_list, m_pd_l
         'PAPR [W]': m_pw_list,
         'PAPR [dB]': m_pd_list
     }, index=np.arange(s_index, n_steps))
-
     df = pd.concat([df1, df2], axis=1)
+
     if (epi == 0):
         df.to_csv(path)
     else:

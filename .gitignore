@@ -3,11 +3,9 @@ venv
 
 tmp
 plots
-miss_max
+repapr-ppo/out/data/miss_max/
+repapr-ppo/out/ppo/
 
 config.toml
 
 __pycache__
-/out/**/*.csv
-/out/**/*.svg
-/out/**/*.txt

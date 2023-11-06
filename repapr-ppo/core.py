@@ -2,11 +2,12 @@
 import os
 import tomllib
 import numpy as np
+from datetime import datetime, time
 
 from .modules.repapr_ppo_torch import Agent
 from .modules.environments import MtEnv
 from .modules.utils import rt_plot_init, rt_plot_reload,\
-        close_plot, plot_learning_curve, write_csv, send_line
+        close_plot, plot_learning_curve, write_csv, send_line, new_file
 
 def program():
     """ Core Program """
@@ -26,6 +27,7 @@ def program():
 
     # 追加処理
     load_data: bool = data['addproc']['load_data']
+    overwrite: bool = data['addproc']['overwrite']
     rt_graph: bool = data['addproc']['rt_graph']
     notify: bool = data['addproc']['notify']
 
@@ -64,6 +66,9 @@ def program():
     chkpt_dir = f"repapr-ppo/out/ppo/{dir_name}"
     if not os.path.exists(chkpt_dir):
         os.mkdir(chkpt_dir)
+    else:
+        if overwrite is False:
+            raise FileExistsError("The file already exists. Make the overwrite true or use a different algorithm.")
 
     # 環境構築
     env = MtEnv(tones=tones, del_freq=del_freq, del_time=del_time, amp=amp,
@@ -86,11 +91,18 @@ def program():
     data_dir = f"repapr-ppo/out/data/{dir_name}"
     if not os.path.exists(data_dir):
         os.mkdir(data_dir)
-    figure_file = f"{data_dir}/result.svg"
-    csv_file = f"{data_dir}/result.csv"
+    filename = "result"
+    figure_file = new_file(data_dir, filename, 'svg')
+    csv_file = new_file(data_dir, filename, 'csv')
     # 出力データ配列の準備
     theta_k_epi_list, act_epi_list, max_ep_t_epi_list, \
         max_papr_w_epi_list, max_papr_db_epi_list = [], [], [], [], []
+
+    # 処理開始前 LINE 通知
+    now = datetime.now().time()
+    message = f"repapr-ppo / {now.isoformat(timespec='seconds')}\n{dir_name}\n処理を開始します"
+    if notify is True:
+        send_line(channel_token, user_id, message)
 
 
     for i in range(n_calc):
@@ -171,5 +183,7 @@ def program():
     x = [i+1 for i in range(len(score_history))]
     plot_learning_curve(x, score_history, figure_file)
     # LINE 通知
-    message = f"repapr-ppo\n{dir_name}\n全てのエピソードの演算が完了しました。出力データより解析を行ってください。"
-    send_line(channel_token, user_id, message)
+    now = datetime.now().time()
+    message = f"repapr-ppo / {now.isoformat(timespec='seconds')}\n{dir_name}\n全てのエピソードの演算が完了しました。出力データより解析を行ってください。"
+    if notify is True:
+        send_line(channel_token, user_id, message)
