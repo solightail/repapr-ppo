@@ -1,15 +1,16 @@
 import os
+import glob
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import json
 import requests
 
-def new_file(path, filename, extension) -> str:
+def new_filename(path, filename) -> str:
     i = 1
-    while os.path.exists(f'{path}/{filename}-{i}.{extension}'):
+    while len(glob.glob(f"{path}/{filename}-{i}.*")) > 0:
         i += 1
-    return f'{path}/{filename}-{i}.{extension}'
+    return f'{path}/{filename}-{i}'
 
 
 def rt_plot_init(time_values, ept_values):

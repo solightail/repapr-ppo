@@ -7,7 +7,7 @@ from datetime import datetime, time
 from .modules.repapr_ppo_torch import Agent
 from .modules.environments import MtEnv
 from .modules.utils import rt_plot_init, rt_plot_reload,\
-        close_plot, plot_learning_curve, write_csv, send_line, new_file
+        close_plot, plot_learning_curve, write_csv, send_line, new_filename
 
 def program():
     """ Core Program """
@@ -91,9 +91,9 @@ def program():
     data_dir = f"repapr-ppo/out/data/{dir_name}"
     if not os.path.exists(data_dir):
         os.mkdir(data_dir)
-    filename = "result"
-    figure_file = new_file(data_dir, filename, 'svg')
-    csv_file = new_file(data_dir, filename, 'csv')
+    path_filename = new_filename(data_dir, "result")
+    figure_file = f'{path_filename}.svg'
+    csv_file = f'{path_filename}.csv'
     # 出力データ配列の準備
     theta_k_epi_list, act_epi_list, max_ep_t_epi_list, \
         max_papr_w_epi_list, max_papr_db_epi_list = [], [], [], [], []
