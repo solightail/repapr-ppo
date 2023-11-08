@@ -1,0 +1,8 @@
+time: 0.9345 s / EP(t): 8.1874675259983 W
+PAPR: 1.6374935051996604 W / 2.1417958612242076 dB
+
+theta_k_values[0] is -0.99267578125
+theta_k_values[1] is 0.163330078125
+theta_k_values[2] is -0.6796875
+theta_k_values[3] is 4.5859375
+theta_k_values[4] is 7.84765625

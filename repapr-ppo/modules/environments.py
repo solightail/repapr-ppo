@@ -2,8 +2,8 @@ from . import algorithms as algo
 from . import calc
 
 import numpy as np
-import gym
 import gym.spaces
+import torch.nn as nn
 from scipy.signal import find_peaks
 
 class MtEnv(gym.Env):
@@ -86,6 +86,12 @@ class MtEnv(gym.Env):
                 self.input_dims = 2
             case 'BFtt_v1':
                 self.input_dims = 4
+
+            case 'dB_v0':
+                self.input_dims = tones+1
+
+            case 'MSEa_v0':
+                self.input_dims = 10000
 
         self.input_dims = (self.input_dims, )
 
@@ -297,4 +303,18 @@ class MtEnv(gym.Env):
                 observation = np.array([[up1h, up2h], [lo1h, lo2h]])
                 reward = (self.tones+2 - up1h) + (lo1h - self.tones-2) + (self.tones+2 - up2h) + (lo2h - self.tones-2) - (up1h - up2h) - (lo2h - lo1h)
 
+            case 'dB_v0':
+                observation = self.theta_k_values.tolist()
+                observation.append(self.max_papr_db)
+                reward = -self.max_papr_db
+
+            case 'MSEa_v0':
+                """
+                criterion = nn.MSELoss()
+                torch.tensor([], requires_grad=True)
+                observation = np.array([self.ep_t_array])
+                reward = 
+                """
+
+        # up1h は truncated 用
         return observation, reward, up1h
