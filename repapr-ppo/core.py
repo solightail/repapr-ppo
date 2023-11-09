@@ -67,7 +67,7 @@ def program():
     if not os.path.exists(chkpt_dir):
         os.mkdir(chkpt_dir)
     else:
-        if overwrite is False:
+        if os.path.exists(f'{chkpt_dir}/actor_torch_ppo') and overwrite is False:
             raise FileExistsError("The file already exists. Make the overwrite true or use a different algorithm.")
 
     # 環境構築
@@ -86,7 +86,7 @@ def program():
 
     # 出力関連
     # リアルタイムグラフ表示の準備
-    if rt_graph is True: lines = rt_plot_init(env.time_values, env.ep_t_array)
+    if rt_graph is True: lines, plot_text = rt_plot_init(env.time_values, env.ep_t_array, env.max_papr_db, env.mse)
     # データ出力フォルダの準備
     data_dir = f"repapr-ppo/out/data/{dir_name}"
     if not os.path.exists(data_dir):
@@ -109,7 +109,7 @@ def program():
         ''' エピソード 前処理 '''
         # 状態の初期化
         observation, _ = env.reset()
-        if rt_graph is True: rt_plot_reload(env.time_values, env.ep_t_array, lines, "red")
+        if rt_graph is True: rt_plot_reload(lines, env.time_values, env.ep_t_array, "red", plot_text, env.max_papr_db, env.mse)
 
         # terminated:
         #   終端状態になったかの判定
@@ -139,7 +139,7 @@ def program():
             # 実行した状態や行動などを記録
             agent.remember(observation, action, prob, val, reward, terminated, truncated)
             # プロット更新
-            if rt_graph is True: rt_plot_reload(env.time_values, env.ep_t_array, lines, "gray")
+            if rt_graph is True: rt_plot_reload(lines, env.time_values, env.ep_t_array, "gray", plot_text, env.max_papr_db, env.mse)
             # csv 出力用に配列へデータの追加
             act_epi_list.append(action)
             theta_k_epi_list.append(env.theta_k_values.tolist())
@@ -166,7 +166,7 @@ def program():
                 agent.save_models()
 
         # CLI 表示
-        print(f"episode {i}  score {score:.6}  avg score {avg_score:.6}  time_steps {n_steps}  learning_steps {learn_iters}")
+        print(f"episode {i}  score {score:.06}  avg score {avg_score:.06}  time_steps {n_steps}  learning_steps {learn_iters}")
 
         # csv 出力用に配列へデータの追加
         write_csv(i, score, avg_score, act_epi_list, theta_k_epi_list, max_ep_t_epi_list, 
@@ -174,7 +174,7 @@ def program():
         # 出力データ配列の初期化
         theta_k_epi_list, act_epi_list, max_ep_t_epi_list, \
             max_papr_w_epi_list, max_papr_db_epi_list = [], [], [], [], []
-        
+
 
     ''' 全エピソード終了 後処理'''
     # RealTime グラフ表示の終了
