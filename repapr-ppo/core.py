@@ -26,6 +26,7 @@ def program():
     re_model: str = data['input']['re_model']
 
     # 追加処理
+    inheritance_theta_k: bool = data['addproc']['inheritance_theta_k']
     load_data: bool = data['addproc']['load_data']
     overwrite: bool = data['addproc']['overwrite']
     rt_graph: bool = data['addproc']['rt_graph']
@@ -53,13 +54,15 @@ def program():
 
 
     # 変数の初期化
-    n_calc = 300            # 試行回数
-    best_score = -np.inf    # ベストスコア（default: -inf）
-    score_history = []      # スコア記録
+    n_calc = 300                        # 試行回数
+    best_papr_db = np.inf              # ベストPAPR（default: inf）
+    inheritance_theta_k_values = None   # 継承 theta_k
+    best_score = -np.inf                # ベストスコア（default: -inf）
+    score_history = []                  # スコア記録
 
-    learn_iters = 0         # 学習数
-    avg_score = 0           # 平均スコア
-    n_steps = 0             # 行動回数
+    learn_iters = 0                     # 学習数
+    avg_score = 0                       # 平均スコア
+    n_steps = 0                         # 行動回数
 
     # 学習データ保存フォルダ 準備
     dir_name: str = f"{tones}-{init_model}-{re_model}-{max_step}-{N}-{batch_size}"
@@ -86,7 +89,7 @@ def program():
 
     # 出力関連
     # リアルタイムグラフ表示の準備
-    if rt_graph is True: lines, plot_text = rt_plot_init(env.time_values, env.ep_t_array, env.max_papr_db, env.mse)
+    if rt_graph is True: lines, plot_text = rt_plot_init(env.time_values, env.ep_t_array, env.papr_db, env.mse)
     # データ出力フォルダの準備
     data_dir = f"repapr-ppo/out/data/{dir_name}"
     if not os.path.exists(data_dir):
@@ -96,7 +99,7 @@ def program():
     csv_file = f'{path_filename}.csv'
     # 出力データ配列の準備
     theta_k_epi_list, act_epi_list, max_ep_t_epi_list, \
-        max_papr_w_epi_list, max_papr_db_epi_list = [], [], [], [], []
+        papr_w_epi_list, papr_db_epi_list = [], [], [], [], []
 
     # 処理開始前 LINE 通知
     now = datetime.now().time()
@@ -108,8 +111,11 @@ def program():
     for i in range(n_calc):
         ''' エピソード 前処理 '''
         # 状態の初期化
-        observation, _ = env.reset()
-        if rt_graph is True: rt_plot_reload(lines, env.time_values, env.ep_t_array, "red", plot_text, env.max_papr_db, env.mse)
+        if inheritance_theta_k_values is None:
+            observation, _ = env.reset()
+        else:
+            observation, _ = env.manual_reset(inheritance_theta_k_values)
+        if rt_graph is True: rt_plot_reload(lines, env.time_values, env.ep_t_array, "red", plot_text, env.papr_db, env.mse)
 
         # terminated:
         #   終端状態になったかの判定
@@ -139,13 +145,13 @@ def program():
             # 実行した状態や行動などを記録
             agent.remember(observation, action, prob, val, reward, terminated, truncated)
             # プロット更新
-            if rt_graph is True: rt_plot_reload(lines, env.time_values, env.ep_t_array, "gray", plot_text, env.max_papr_db, env.mse)
+            if rt_graph is True: rt_plot_reload(lines, env.time_values, env.ep_t_array, "gray", plot_text, env.papr_db, env.mse)
             # csv 出力用に配列へデータの追加
             act_epi_list.append(action)
             theta_k_epi_list.append(env.theta_k_values.tolist())
             max_ep_t_epi_list.append(env.max_ep_t)
-            max_papr_w_epi_list.append(env.max_papr_w)
-            max_papr_db_epi_list.append(env.max_papr_db)
+            papr_w_epi_list.append(env.papr_w)
+            papr_db_epi_list.append(env.papr_db)
             # 行動をN回した時に、学習を1度行う
             if n_steps % N == 0:
                 agent.learn()
@@ -154,11 +160,20 @@ def program():
             observation = observation_
 
         ''' エピソード 後処理 '''
+        # theta_k の継承
+        min_papr_db_epi = np.min(papr_db_epi_list)
+        if (inheritance_theta_k is True):
+            if (min_papr_db_epi <= best_papr_db):
+                print("... inheritance theta_k ...")
+                best_papr_db = min_papr_db_epi
+                inheritance_theta_k_values = theta_k_epi_list[np.argmin(papr_db_epi_list)]
+        else:
+            inheritance_theta_k_values = None
+
         # スコアを記録リストへ追加
         score_history.append(score)
         # 平均スコアの算出
         avg_score = np.mean(score_history[-score_avg_calc:])
-
         # 平均スコアが、ベストスコア（過去の平均スコア）よりも高い場合、ベストスコアの更新と、モデルのセーブを行う
         if i >= score_avg_init:
             if avg_score > best_score:
@@ -166,14 +181,14 @@ def program():
                 agent.save_models()
 
         # CLI 表示
-        print(f"episode {i}  score {score:.06}  avg score {avg_score:.06}  time_steps {n_steps}  learning_steps {learn_iters}")
+        print(f"episode {i}  score {score:.03f}  avg score {avg_score:.03f}  time_steps {n_steps}  learning_steps {learn_iters}")
 
         # csv 出力用に配列へデータの追加
         write_csv(i, score, avg_score, act_epi_list, theta_k_epi_list, max_ep_t_epi_list, 
-                  max_papr_w_epi_list, max_papr_db_epi_list, n_steps, max_step, csv_file)
+                  papr_w_epi_list, papr_db_epi_list, n_steps, max_step, csv_file)
         # 出力データ配列の初期化
         theta_k_epi_list, act_epi_list, max_ep_t_epi_list, \
-            max_papr_w_epi_list, max_papr_db_epi_list = [], [], [], [], []
+            papr_w_epi_list, papr_db_epi_list = [], [], [], [], []
 
 
     ''' 全エピソード終了 後処理'''

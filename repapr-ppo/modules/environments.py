@@ -131,7 +131,21 @@ class MtEnv(gym.Env):
         self.theta_k_values = algo_context.calc_algo()
 
         # observation 計算
-        self.ep_t_array, self.max_ep_t, self.max_papr_w, self.max_papr_db = self._eptarr()
+        self.ep_t_array, self.max_ep_t, self.papr_w, self.papr_db = self._eptarr()
+        observation, _, _ = self._obreward()
+
+        return observation, None
+    
+    def manual_reset(self, manual):
+        self.steps = 0
+        strategy = algo.Manual(self.tones, manual)
+
+        # theta_k 計算
+        algo_context = algo.AContext(strategy)
+        self.theta_k_values = algo_context.calc_algo()
+
+        # observation 計算
+        self.ep_t_array, self.max_ep_t, self.papr_w, self.papr_db = self._eptarr()
         observation, _, _ = self._obreward()
 
         return observation, None
@@ -143,7 +157,7 @@ class MtEnv(gym.Env):
         each_action_tuple = np.unravel_index(action, (len(self.action_list),) * self.tones)
         for i in range(self.tones):
             self.theta_k_values[i] = self.theta_k_values[i] + ((self.action_arr[i][each_action_tuple[i]])*2*np.pi*self.action_div)
-        self.ep_t_array, self.max_ep_t, self.max_papr_w, self.max_papr_db = self._eptarr()
+        self.ep_t_array, self.max_ep_t, self.papr_w, self.papr_db = self._eptarr()
 
         # --- observation & reward ---
         observation, reward_raw, up1h = self._obreward()
@@ -312,8 +326,8 @@ class MtEnv(gym.Env):
 
             case 'dB_v0':
                 observation = self.theta_k_values.tolist()
-                observation.append(self.max_papr_db)
-                reward = -self.max_papr_db
+                observation.append(self.papr_db)
+                reward = -self.papr_db
 
             case 'dB_BMSE_v0':
                 criterion = nn.MSELoss()
@@ -326,7 +340,7 @@ class MtEnv(gym.Env):
                 self.mse = loss.detach().numpy().copy()
 
                 observation = self.theta_k_values.tolist()
-                observation.append(self.max_papr_db)
+                observation.append(self.papr_db)
                 reward = -self.mse
 
             case 'dB_AMSE_v0':
@@ -339,7 +353,7 @@ class MtEnv(gym.Env):
                 self.mse = loss.detach().numpy().copy()
 
                 observation = self.theta_k_values.tolist()
-                observation.append(self.max_papr_db)
+                observation.append(self.papr_db)
                 reward = -self.mse
 
             case 'BMSE_dB_v0':
@@ -354,7 +368,7 @@ class MtEnv(gym.Env):
 
                 observation = self.theta_k_values.tolist()
                 observation.append(self.mse)
-                reward = -self.max_papr_db
+                reward = -self.papr_db
 
         # up1h は truncated 用
         return observation, reward, up1h

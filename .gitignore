@@ -5,6 +5,7 @@ tmp
 plots
 repapr-ppo/out/data/miss_max/
 repapr-ppo/out/ppo/
+repapr-ppo/out/data/
 
 config.toml
 
