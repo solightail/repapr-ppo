@@ -140,7 +140,7 @@ class Agent:
 
     def choose_action(self, observation):
         # 現在の状態 | observation を ndarray で入れると遅いようなので、array に変換してる
-        state = T.tensor([observation], dtype=T.float).to(self.actor.device)
+        state = T.tensor(np.array(observation), dtype=T.float).to(self.actor.device)
 
         # 現在の状態に対する各行動の確率
         dist = self.actor(state)

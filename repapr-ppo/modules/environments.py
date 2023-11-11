@@ -94,10 +94,20 @@ class MtEnv(gym.Env):
                 self.input_dims = tones+1
             case 'dB_BMSE_v0':
                 self.input_dims = tones+1
+            case 'dBmD_BMSE_v0':
+                self.input_dims = tones+3
+            case 'dBmDl_BMSE_v0':
+                self.input_dims = tones+4
             case 'dB_AMSE_v0':
                 self.input_dims = tones+1
-            case 'BMSE_dB_v0':
-                self.input_dims = tones+1
+            case 'dBD_AMSE_v0':
+                self.input_dims = tones+2
+            case 'dBmD_AMSE_v0':
+                self.input_dims = tones+3
+            case 'dBmD_AMSE0_v0':
+                self.input_dims = tones+3
+            case 'AMSEmD_dB_v0':
+                self.input_dims = tones+3
 
         self.input_dims = (self.input_dims, )
 
@@ -343,6 +353,39 @@ class MtEnv(gym.Env):
                 observation.append(self.papr_db)
                 reward = -self.mse
 
+            case 'dBmD_BMSE_v0':
+                criterion = nn.MSELoss()
+                both_peaks_heights = np.append(upper_peaks_heights, lower_peaks_heights)
+                both_peaks_tensor = torch.tensor(both_peaks_heights, requires_grad=True).double()
+                target_array = np.full(len(both_peaks_heights), self.tones)
+                target_tensor = torch.tensor(target_array).double()
+                loss = criterion(both_peaks_tensor, target_tensor)
+                loss.backward()
+                self.mse = loss.detach().numpy().copy()
+
+                observation = self.theta_k_values.tolist()
+                observation.append(self.papr_db)
+                observation.append(self.mse)
+                observation.append(self.action_div)
+                reward = -self.mse
+
+            case 'dBmDl_BMSE_v0':
+                criterion = nn.MSELoss()
+                both_peaks_heights = np.append(upper_peaks_heights, lower_peaks_heights)
+                both_peaks_tensor = torch.tensor(both_peaks_heights, requires_grad=True).double()
+                target_array = np.full(len(both_peaks_heights), self.tones)
+                target_tensor = torch.tensor(target_array).double()
+                loss = criterion(both_peaks_tensor, target_tensor)
+                loss.backward()
+                self.mse = loss.detach().numpy().copy()
+
+                observation = self.theta_k_values.tolist()
+                observation.append(len(both_peaks_heights))
+                observation.append(self.papr_db)
+                observation.append(self.mse)
+                observation.append(self.action_div)
+                reward = -self.mse
+
             case 'dB_AMSE_v0':
                 criterion = nn.MSELoss()
                 ep_t_tensor = torch.tensor(self.ep_t_array, requires_grad=True).double()
@@ -356,7 +399,51 @@ class MtEnv(gym.Env):
                 observation.append(self.papr_db)
                 reward = -self.mse
 
-            case 'BMSE_dB_v0':
+            case 'dBD_AMSE_v0':
+                criterion = nn.MSELoss()
+                ep_t_tensor = torch.tensor(self.ep_t_array, requires_grad=True).double()
+                target_array = np.full(len(ep_t_tensor), self.tones)
+                target_tensor = torch.tensor(target_array).double()
+                loss = criterion(ep_t_tensor, target_tensor)
+                loss.backward()
+                self.mse = loss.detach().numpy().copy()
+
+                observation = self.theta_k_values.tolist()
+                observation.append(self.papr_db)
+                observation.append(self.action_div)
+                reward = -self.mse
+
+            case 'dBmD_AMSE_v0':
+                criterion = nn.MSELoss()
+                ep_t_tensor = torch.tensor(self.ep_t_array, requires_grad=True).double()
+                target_array = np.full(len(ep_t_tensor), self.tones)
+                target_tensor = torch.tensor(target_array).double()
+                loss = criterion(ep_t_tensor, target_tensor)
+                loss.backward()
+                self.mse = loss.detach().numpy().copy()
+
+                observation = self.theta_k_values.tolist()
+                observation.append(self.papr_db)
+                observation.append(self.mse)
+                observation.append(self.action_div)
+                reward = -self.mse
+
+            case 'dBmD_AMSE0_v0':
+                criterion = nn.MSELoss()
+                ep_t_tensor = torch.tensor(self.ep_t_array, requires_grad=True).double()
+                target_array = np.full(len(ep_t_tensor), 0)
+                target_tensor = torch.tensor(target_array).double()
+                loss = criterion(ep_t_tensor, target_tensor)
+                loss.backward()
+                self.mse = loss.detach().numpy().copy()
+
+                observation = self.theta_k_values.tolist()
+                observation.append(self.papr_db)
+                observation.append(self.mse)
+                observation.append(self.action_div)
+                reward = -self.mse
+
+            case 'AMSEmD_dB_v0':
                 criterion = nn.MSELoss()
                 both_peaks_heights = np.append(upper_peaks_heights, lower_peaks_heights)
                 both_peaks_tensor = torch.tensor(both_peaks_heights, requires_grad=True).double()
@@ -367,7 +454,9 @@ class MtEnv(gym.Env):
                 self.mse = loss.detach().numpy().copy()
 
                 observation = self.theta_k_values.tolist()
+                observation.append(self.papr_db)
                 observation.append(self.mse)
+                observation.append(self.action_div)
                 reward = -self.papr_db
 
         # up1h は truncated 用

@@ -9,20 +9,21 @@ del_time = 0.0001
 amp = 1.0
 init_model = "narahashi"
 manual = ""
-re_model = "USo_v1"
+re_model = "dB_AMSE_v0"
 
 [addproc] # 追加処理
 inheritance_theta_k = false
 load_data = false
 overwrite = false
 rt_graph = true
-notify = true
+notify = false
 
 [param] # 環境パラメータ
-max_step = 20#*tones                # 1エピソードあたりのステップ上限
-action_div = 0.002                  # 行動の大きさを指定 (値を大きくしすぎると大雑把になる)
-action_list = [-10, -1, 0, 1, 10]   # 行動の選択肢
-reward_x = 1.0                      # スコアを見やすくするための倍数
+max_step = 20#*tones        # 1エピソードあたりのステップ上限
+action_div = 0.02           # 初期行動倍率 (値を大きくしすぎると大雑把になる)
+action_div_shrink = 0.5     # 行動倍率を縮小させる倍率
+action_list = [-1, 0, 1]    # 行動の選択肢
+reward_x = 1.0              # スコアを見やすくするための倍数
 
 [hyper] # ハイパーパラメータ
 N = 10

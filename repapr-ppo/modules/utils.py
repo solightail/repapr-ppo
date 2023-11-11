@@ -13,12 +13,17 @@ def new_filename(path, filename) -> str:
     return f'{path}/{filename}-{i}'
 
 
-def rt_plot_init(time_values, ept_values, papr_db, mse):
+def rt_plot_init(time_values, ept_values, papr_db, mse, action_div):
     lines, = plt.plot(time_values, ept_values)
-    if mse is None:
-        plot_text = plt.figtext(0.98, 0.02, f'PAPR [dB]: {papr_db:.02f}', ha='right')
+    if action_div is None:
+        plot_text_bl = plt.figtext(0.02, 0.02, f'0 Best PAPR: {papr_db:.04f} dB', ha='left', color='red')
     else:
-        plot_text = plt.figtext(0.98, 0.02, f'PAPR [dB]: {papr_db:.02f} / MSELoss: {mse:.03f}', ha='right')
+        plt.subplots_adjust(bottom=10/72)
+        plot_text_bl = plt.figtext(0.02, 0.02, f'0 Best PAPR: {papr_db:.04f} dB / action_div: x{action_div}', ha='left', color='red')
+    if mse is None:
+        plot_text_br = plt.figtext(0.98, 0.02, f'PAPR: {papr_db:.03f} dB', ha='right', color='red')
+    else:
+        plot_text_br = plt.figtext(0.98, 0.02, f'PAPR: {papr_db:.03f} dB / MSELoss: {mse:.03f}', ha='right', color='red')
     plt.xlabel('Time')
     plt.xlim(0, 1)
     plt.xticks([0, 0.5, 1], [0, 'T/2', 'T'])
@@ -26,16 +31,27 @@ def rt_plot_init(time_values, ept_values, papr_db, mse):
     plt.ylim(0, )
     plt.legend()
     plt.grid(True)
-    return lines, plot_text
+    return lines, plot_text_bl, plot_text_br
 
-def rt_plot_reload(lines, time_values, ept_values, setcolor, text, papr_db, mse):
+def rt_plot_reload_line(lines, time_values, ept_values, setcolor):
     lines.set_data(time_values, ept_values)
     lines.set_color(setcolor)
-    if mse is None:
-        text.set_text(f'PAPR [dB]: {papr_db:.02f}')
+
+def rt_plot_reload_text_bl(text, index, best_papr_db, action_div, setcolor):
+    if action_div is None:
+        text.set_text(f'{index} Best PAPR: {best_papr_db:.03f} dB')
     else:
-        text.set_text(f'PAPR [dB]: {papr_db:.02f} / MSELoss: {mse:.03f}')
+        text.set_text(f'{index} Best PAPR: {best_papr_db:.03f} dB / action_div: x{action_div:.06f}')
     text.set_color(setcolor)
+
+def rt_plot_reload_text_br(text, papr_db, mse, setcolor):
+    if mse is None:
+        text.set_text(f'PAPR: {papr_db:.03f} dB')
+    else:
+        text.set_text(f'PAPR: {papr_db:.03f} dB / MSELoss: {mse:.03f}')
+    text.set_color(setcolor)
+
+def pause_plot():
     plt.pause(.01)
 
 def close_plot():
