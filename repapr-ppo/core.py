@@ -15,47 +15,51 @@ def program():
 
     # 設定ファイルの読み込み
     with open('repapr-ppo/config.toml', 'rb') as file:
-        data = tomllib.load(file)
+        cfg = tomllib.load(file)
 
     # 入力変数
-    tones: int = data['input']['tones']
-    del_freq: float = data['input']['del_freq']
-    del_time: float = data['input']['del_time']
-    amp: float = data['input']['amp']
-    init_model: str = data['input']['init_model']
-    manual: list = data['input']['manual']
-    re_model: str = data['input']['re_model']
+    tones: int = cfg['input']['tones']
+    del_freq: float = cfg['input']['del_freq']
+    del_time: float = cfg['input']['del_time']
+    amp: float = cfg['input']['amp']
+    init_model: str = cfg['input']['init_model']
+    manual: list = cfg['input']['manual']
 
     # 追加処理
-    inf_calc: bool = data['addproc']['inf_calc']
-    inheritance_theta_k: bool = data['addproc']['inheritance_theta_k']
-    shrink_action_div: bool = data['addproc']['shrink_action_div']
-    load_data: bool = data['addproc']['load_data']
-    overwrite: bool = data['addproc']['overwrite']
-    rt_graph: bool = data['addproc']['rt_graph']
-    notify: bool = data['addproc']['notify']
+    inf_calc: bool = cfg['addproc']['inf_calc']
+    inheritance_theta_k: bool = cfg['addproc']['inheritance_theta_k']
+    shrink_action_div: bool = cfg['addproc']['shrink_action_div']
+    load_data: bool = cfg['addproc']['load_data']
+    overwrite: bool = cfg['addproc']['overwrite']
+    rt_graph: bool = cfg['addproc']['rt_graph']
+    notify: bool = cfg['addproc']['notify']
+
+    # 観測・報酬パラメータ
+    observation_items: dict = cfg['env']['observation']
+    eval_metrics: str = cfg['env']['reward']['eval_metrics']
+    eval_model: str = cfg['env']['reward']['eval_model']
 
     # 環境パラメータ
-    n_calc: int = data['param']['n_calc']
-    n_inherit: int = data['param']['n_inherit']
-    max_step: int = data['param']['max_step'] #* tones
-    action_div: float = data['param']['action_div']
-    action_div_shrink_scale: float = data['param']['action_div_shrink_scale']
-    action_list: list = data['param']['action_list']
+    n_calc: int = cfg['param']['n_calc']
+    n_inherit: int = cfg['param']['n_inherit']
+    max_step: int = cfg['param']['max_step'] #* tones
+    action_div: float = cfg['param']['action_div']
+    action_div_shrink_scale: float = cfg['param']['action_div_shrink_scale']
+    action_list: list = cfg['param']['action_list']
 
     # ハイパーパラメータ
-    N: int = data['hyper']['N']
-    batch_size: int = data['hyper']['batch_size']
-    n_epochs: int = data['hyper']['n_epochs']
-    alpha: float = data['hyper']['alpha']
+    N: int = cfg['hyper']['N']
+    batch_size: int = cfg['hyper']['batch_size']
+    n_epochs: int = cfg['hyper']['n_epochs']
+    alpha: float = cfg['hyper']['alpha']
 
     # スコア処理パラメータ
-    score_avg_init = data['score']['avg_init']
-    score_avg_calc = data['score']['avg_calc']
+    score_avg_init = cfg['score']['avg_init']
+    score_avg_calc = cfg['score']['avg_calc']
 
     # LINE Token
-    channel_token = data['line']['channel_token']
-    user_id = data['line']['user_id']
+    channel_token = cfg['line']['channel_token']
+    user_id = cfg['line']['user_id']
 
 
     # 変数の初期化
@@ -70,7 +74,7 @@ def program():
     n_steps = 0                         # 行動回数
 
     # 保存フォルダパス
-    dir_name: str = f"{tones}-{init_model}-{re_model}"#-{max_step}-{N}-{batch_size}"
+    dir_name: str = f"{tones}-{init_model}-{eval_model}"#-{max_step}-{N}-{batch_size}"
     chkpt_dir = f"repapr-ppo/out/ppo/{dir_name}"
     data_dir = f"repapr-ppo/out/data/{dir_name}"
 
@@ -83,8 +87,9 @@ def program():
 
     # 環境構築
     env = MtEnv(tones=tones, del_freq=del_freq, del_time=del_time, amp=amp,
-                max_step=max_step, action_div=action_div, action_list=action_list,
-                init_model=init_model, manual=manual, re_model=re_model)
+                 max_step=max_step, action_div=action_div, action_list=action_list,
+                 init_model=init_model, manual=manual, observation_items=observation_items,
+                 eval_metrics=eval_metrics, eval_model=eval_model)
 
     # エージェント インスタンス作成
     agent = Agent(n_actions=env.n_action, batch_size=batch_size, alpha=alpha,

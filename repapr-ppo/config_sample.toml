@@ -29,7 +29,7 @@ reward = true
 
 [env.reward]
 eval_metrics = "mse"
-eval_part = "all"
+eval_model = "AMSE_v0"
 
 [env.param] # 環境パラメータ
 n_calc = 300                    # 計算上限
