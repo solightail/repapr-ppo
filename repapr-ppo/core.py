@@ -42,7 +42,6 @@ def program():
     action_div: float = data['param']['action_div']
     action_div_shrink_scale: float = data['param']['action_div_shrink_scale']
     action_list: list = data['param']['action_list']
-    reward_x: float = data['param']['reward_x']
 
     # ハイパーパラメータ
     N: int = data['hyper']['N']
@@ -85,7 +84,7 @@ def program():
     # 環境構築
     env = MtEnv(tones=tones, del_freq=del_freq, del_time=del_time, amp=amp,
                 max_step=max_step, action_div=action_div, action_list=action_list,
-                reward_x=reward_x, init_model=init_model, manual=manual, re_model=re_model)
+                init_model=init_model, manual=manual, re_model=re_model)
 
     # エージェント インスタンス作成
     agent = Agent(n_actions=env.n_action, batch_size=batch_size, alpha=alpha,

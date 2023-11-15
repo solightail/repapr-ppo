@@ -9,8 +9,9 @@ from scipy.signal import find_peaks
 
 class MtEnv(gym.Env):
     def __init__(self, tones: int, del_freq:float, del_time:float, amp:float,
-                 max_step: int, action_div: float, action_list: list, reward_x: float,
-                 init_model: str='random', manual: list=None, re_model: str='USo_v0',):
+                 max_step: int, action_div: float, action_list: list,
+                 init_model: str, manual: list,
+                 observation_items: dict, eval_metrics: str, eval_model: str):
         super().__init__()
 
         self.tones: int = tones
@@ -20,129 +21,95 @@ class MtEnv(gym.Env):
         self.max_step: int = max_step
         self.action_div: float = action_div
         self.action_list: list = action_list
-        self.reward_x: float = reward_x
         self.init_model: str = init_model
         self.manual: float = manual
-        self.re_model: str = re_model
+        self.observation_items: dict = observation_items
+        self.eval_metrics: str = eval_metrics
+        self.eval_model: str = eval_model
 
-        self.theta_k_values: np.array[float]
-        self.time_values: np.array = np.arange(0.0, 1.0 + self.del_time, self.del_time)
-
+        self.theta_k_values: np.array[float] = self._init_theta_k_values()
+        self.time_values: np.array[float] = np.arange(0.0, 1.0 + self.del_time, self.del_time)
+        self.known_peaks: bool = False
+        self.obs_peaks_height: list = None
         self.mse = None
 
-        match self.re_model:
-            case 'USa_v0':
-                self.input_dims = 1
-            case 'USo_v0':
-                self.input_dims = 1
-            case 'USt_v0':
-                self.input_dims = 2
-            case 'UFtSt_v0':
-                self.input_dims = 2
-            case 'BSa_v0':
-                self.input_dims = 2
-            case 'BSo_v0':
-                self.input_dims = 2
-            case 'BSt_v0':
-                self.input_dims = 4
-            case 'BFt_v0':
-                self.input_dims = 4
-            case 'USa_v0t':
-                self.input_dims = 2
-            case 'USo_v0t':
-                self.input_dims = 2
-            case 'USt_v0t':
-                self.input_dims = 2
-            case 'UFtSt_v0t':
-                self.input_dims = 2
-            case 'BSa_v0t':
-                self.input_dims = 4
-            case 'BSo_v0t':
-                self.input_dims = 4
-            case 'BSt_v0t':
-                self.input_dims = 4
-            case 'BFt_v0t':
-                self.input_dims = 4
-
-            case 'USo_v1':
-                self.input_dims = 1
-            case 'USt_v1':
-                self.input_dims = 2
-            case 'UFtSt_v1':
-                self.input_dims = 2
-            case 'BSo_v1':
-                self.input_dims = 2
-            case 'BSt_v1':
-                self.input_dims = 4
-            case 'BFt_v1':
-                self.input_dims = 4
-
-            case 'USto_v1':
-                self.input_dims = 2
-            case 'UFtSto_v1':
-                self.input_dims = 2
-            case 'BSto_v1':
-                self.input_dims = 2
-            case 'BStt_v1':
-                self.input_dims = 4
-            case 'BFto_v1':
-                self.input_dims = 2
-            case 'BFtt_v1':
-                self.input_dims = 4
-
-            case 'dB_v0':
-                self.input_dims = tones+1
-            case 'dB_BMSE_v0':
-                self.input_dims = tones+1
-            case 'dBmD_BMSE_v0':
-                self.input_dims = tones+3
-            case 'dBmDl_BMSE_v0':
-                self.input_dims = tones+4
-            case 'dB_AMSE_v0':
-                self.input_dims = tones+1
-            case 'dBD_AMSE_v0':
-                self.input_dims = tones+2
-            case 'dBmD_AMSE_v0':
-                self.input_dims = tones+3
-            case 'dBmD_AMSE0_v0':
-                self.input_dims = tones+3
-            case 'AMSEmD_dB_v0':
-                self.input_dims = tones+3
-
+        # observation の次元設定とスペース設定の準備
+        observation_low = []
+        observation_high = []
+        observation_mean = []
+        minp0t = (1/(2*self.amp**2))*((self.tones)-(self.tones*self.amp**2))
+        maxp0t = (1/(2*self.amp**2))*((self.tones**2)-(self.tones*self.amp**2))
+        self.input_dims = 0
+        if self.observation_items['theta_k'] is True:
+            self.input_dims += self.tones
+            for _ in range(len(self.tones)):
+                observation_low.append(np.min(self.theta_k_values))
+                observation_high.append(np.max(self.theta_k_values))
+                observation_mean.append((np.min(self.theta_k_values) + np.max(self.theta_k_values))/2)
+        if self.observation_items['papr_db'] is True:
+            self.input_dims += 1
+            observation_low.append(10*np.log10(1+((2*minp0t)/self.tones)))
+            observation_high.append(10*np.log10(1+((2*maxp0t)/self.tones)))
+            observation_mean.append((10*np.log10(1+((2*minp0t)/self.tones)) + 10*np.log10(1+((2*maxp0t)/self.tones)))/2)
+        if self.observation_items['action_div'] is True:
+            self.input_dims += 1
+            observation_low.append(0)
+            observation_high.append(1)
+            observation_mean.append(1/2)
+        if self.observation_items['peaks_height'] is True:
+            if self.eval_metrics == 'abs':
+                match self.eval_model:
+                    case 'USo_v1': value = 1
+                    case 'USt_v1': value = 2
+                    case 'UFtSt_v1': value = 2
+                    case 'BSo_v1': value = 2
+                    case 'BSt_v1': value = 4
+                    case 'BFt_v1': value = 4
+            else: value = 4
+            self.input_dims += value
+            for _ in range(value):
+                observation_low.append(0)
+                observation_high.append(np.inf)
+                observation_mean.append(np.inf/2)
+        if self.observation_items['len_both_peaks'] is True:
+            self.input_dims += 1
+            observation_low.append(0)
+            observation_high.append(2*(self.tones-1))
+            observation_mean.append(self.tones-1)
+        if self.observation_items['reward'] is True:
+            self.input_dims += 1
+            observation_low.append(-np.inf)
+            observation_high.append(np.inf)
+            observation_mean.append(0)
         self.input_dims = (self.input_dims, )
 
-        # action_space, observation_space, reward_range を設定する
+        # action_space
+        # action の配列をトーン数に応じて作成
         self.action_arr = np.array([self.action_list] * self.tones)
+        # action の総数を計算
         self.n_action = len(self.action_list) ** self.tones
         self.action_space = gym.spaces.Discrete(self.n_action)
-        self.init_observation = np.ones(self.input_dims) * (self.tones**2)
-        self.observation_space = gym.spaces.Box(low=0, high=self.tones**2, shape=self.init_observation.shape)
-        self.reward_range = np.array([0, 1*self.reward_x])
+        # observation_space
+        self.init_observation = np.array(observation_mean)
+        self.observation_space = gym.spaces.Box(low=np.array(observation_low), high=np.array(observation_high), shape=self.init_observation.shape)
+        # reward_range
+        # デフォルト値は両端infなので、今回は定義しない
+        #self.reward_range = np.array([0, 1])
         self.reset()
 
 
     def reset(self):
         self.steps = 0
-        # アルゴリズム選択
-        match self.init_model:
-            case 'all0':
-                strategy = algo.All0(self.tones)
-            case 'narahashi':
-                strategy = algo.Narahashi(self.tones)
-            case 'newman':
-                strategy = algo.Newman(self.tones)
-            case 'random':
-                strategy = algo.Random(self.tones)
-            case 'manual':
-                strategy = algo.Manual(self.tones, self.manual)
-
-        # theta_k 計算
-        algo_context = algo.AContext(strategy)
-        self.theta_k_values = algo_context.calc_algo()
+        self.theta_k_values = self._init_theta_k_values()
 
         # observation 計算
         self.ep_t_array, self.max_ep_t, self.papr_w, self.papr_db = self._eptarr()
-        observation, _, _ = self._obreward()
+        self.known_peaks = False
+        if self.observation_items['reward'] is True:
+            reward = self._reward()
+            observation = self._observation(reward)
+        else:
+            observation = self._observation()
 
         return observation, None
     
@@ -156,7 +123,12 @@ class MtEnv(gym.Env):
 
         # observation 計算
         self.ep_t_array, self.max_ep_t, self.papr_w, self.papr_db = self._eptarr()
-        observation, _, _ = self._obreward()
+        self.known_peaks = False
+        if self.observation_items['reward'] is True:
+            reward = self._reward()
+            observation = self._observation(reward)
+        else:
+            observation = self._observation()
 
         return observation, None
 
@@ -170,8 +142,12 @@ class MtEnv(gym.Env):
         self.ep_t_array, self.max_ep_t, self.papr_w, self.papr_db = self._eptarr()
 
         # --- observation & reward ---
-        observation, reward_raw, up1h = self._obreward()
-        reward = reward_raw * self.reward_x
+        self.known_peaks = False
+        if self.observation_items['reward'] is True:
+            reward = self._reward()
+            observation = self._observation(reward)
+        else:
+            observation = self._observation()
         '''
         if np.all(each_action_tuple == 1):
             # actions において、1は停止となる
@@ -188,10 +164,14 @@ class MtEnv(gym.Env):
 
         # truncated
         # エリア外等による強制終了
-        if (up1h <= self.tones+2 or self.tones**2 <= up1h):
+        """
+        if self.known_peaks is False: self._calc_peaks()
+        if (self.up1h <= self.tones+2 or self.tones**2 < self.up1h):
             truncated = True
         else:
             truncated = False
+        """
+        truncated = False
 
         return observation, reward, terminated, truncated, None
 
@@ -200,13 +180,95 @@ class MtEnv(gym.Env):
         """ utils.py に必要な要素を入れているのでパス """
         pass
 
+    def _init_theta_k_values(self):
+        # アルゴリズム選択
+        match self.init_model:
+            case 'all0':
+                strategy = algo.All0(self.tones)
+            case 'narahashi':
+                strategy = algo.Narahashi(self.tones)
+            case 'newman':
+                strategy = algo.Newman(self.tones)
+            case 'random':
+                strategy = algo.Random(self.tones)
+            case 'manual':
+                strategy = algo.Manual(self.tones, self.manual)
+
+        # theta_k 計算
+        algo_context = algo.AContext(strategy)
+        return algo_context.calc_algo()
 
     def _eptarr(self):
         formula = calc.Formula(self.tones, self.del_freq, self.amp)
         fepta = calc.FEPtA(formula, self.del_time)
         return fepta.get_ept_papr(self.theta_k_values)
 
-    def _obreward(self):
+
+    def _reward(self):
+        match self.eval_metrics:
+            case 'abs':
+                match self.eval_model:
+                    case 'USo_v1':
+                        if self.known_peaks is False: self._calc_peaks()
+                        self.obs_peaks_height = [self.up1h]
+                        reward = (self.tones+2 - self.up1h)
+                    case 'USt_v1':
+                        if self.known_peaks is False: self._calc_peaks()
+                        self.obs_peaks_height = [self.up1h, self.up2h]
+                        reward = (self.tones+2 - self.up1h) + (self.tones+2 - self.up2h)
+                    case 'UFtSt_v1':
+                        if self.known_peaks is False: self._calc_peaks()
+                        self.obs_peaks_height = [self.up1h, self.up2h]
+                        reward = (self.tones+2 - self.up1h) + (self.tones+2 - self.up2h) - (self.up1h - self.up2h)
+                    case 'BSo_v1':
+                        if self.known_peaks is False: self._calc_peaks()
+                        self.obs_peaks_height = [self.up1h, self.lo1h]
+                        reward = (self.tones+2 - self.up1h) + (self.lo1h - self.tones-2)
+                    case 'BSt_v1':
+                        if self.known_peaks is False: self._calc_peaks()
+                        self.obs_peaks_height = [self.up1h, self.up2h, self.lo1h, self.lo2h]
+                        reward = (self.tones+2 - self.up1h) + (self.lo1h - self.tones-2) + (self.tones+2 - self.up2h) + (self.lo2h - self.tones-2)
+                    case 'BFt_v1':
+                        if self.known_peaks is False: self._calc_peaks()
+                        self.obs_peaks_height = [self.up1h, self.up2h, self.lo1h, self.lo2h]
+                        reward = (self.tones+2 - self.up1h) + (self.lo1h - self.tones-2) + (self.tones+2 - self.up2h) + (self.lo2h - self.tones-2) - (self.up1h - self.up2h) - (self.lo2h - self.lo1h)
+            case 'mse':
+                match self.eval_model:
+                    case 'AMSE_v0':
+                        reward = -self._calc_mse(self.ep_t_array)
+                    case 'BMSE_v0':
+                        if self.known_peaks is False: self._calc_peaks()
+                        both_peaks_heights = np.append(self.upper_peaks_heights, self.lower_peaks_heights)
+                        reward = -self._calc_mse(both_peaks_heights)
+        return reward
+
+    def _observation(self, reward=None):
+        observation = []
+        if self.observation_items['theta_k'] is True:
+            observation.append(self.theta_k_values)
+        if self.observation_items['papr_db'] is True:
+            observation.append(self.papr_db)
+        if self.observation_items['action_div'] is True:
+            observation.append(self.action_div)
+        if self.observation_items['peaks_height'] is True:
+            if self.known_peaks is True:
+                if self.obs_peaks_height is not None:
+                    observation += self.obs_peaks_height
+                else:
+                    observation += [self.up1h, self.up2h, self.lo1h, self.lo2h]
+            else:
+                self._calc_peaks()
+                observation += [self.up1h, self.up2h, self.lo1h, self.lo2h]
+        if self.observation_items['len_both_peaks'] is True:
+            if self.known_peaks is False: self._calc_peaks()
+            observation.append(len(self.upper_peaks_heights)+len(self.lower_peaks_heights))
+        if self.observation_items['reward'] is True:
+            observation.append(reward)
+        return observation
+
+
+    def _calc_peaks(self) -> None:
+        self.known_peaks = True
         # ピーク値取得
         upper_peaks, _ = find_peaks(self.ep_t_array, distance=10, plateau_size=1)
         lower_peaks, _ = find_peaks(-self.ep_t_array, distance=10, plateau_size=1)
@@ -224,240 +286,31 @@ class MtEnv(gym.Env):
 
         # find_peaks 後処理
         # 最大ピークおよび準最大ピークの検出
-        upper_peaks_heights = np.take(self.ep_t_array, upper_peaks)
-        max2_reverse_upper_peaks = upper_peaks[np.argsort(upper_peaks_heights)][-2:]
-        lower_peaks_heights = np.take(self.ep_t_array, lower_peaks)
-        max2_reverse_lower_peaks = lower_peaks[np.argsort(lower_peaks_heights)][:2]
+        self.upper_peaks_heights = np.take(self.ep_t_array, upper_peaks)
+        max2_reverse_upper_peaks = upper_peaks[np.argsort(self.upper_peaks_heights)][-2:]
+        self.lower_peaks_heights = np.take(self.ep_t_array, lower_peaks)
+        max2_reverse_lower_peaks = lower_peaks[np.argsort(self.lower_peaks_heights)][:2]
 
         # upper_peaks 平均・最大ピーク・準最大ピーク
-        upah = np.average(np.take(self.ep_t_array, upper_peaks))
-        up1t = np.take(self.time_values, max2_reverse_upper_peaks[1])
-        up1h = np.take(self.ep_t_array, max2_reverse_upper_peaks[1])
-        up2t = np.take(self.time_values, max2_reverse_upper_peaks[0])
-        up2h = np.take(self.ep_t_array, max2_reverse_upper_peaks[0])
+        self.upah = np.average(np.take(self.ep_t_array, upper_peaks))
+        self.up1t = np.take(self.time_values, max2_reverse_upper_peaks[1])
+        self.up1h = np.take(self.ep_t_array, max2_reverse_upper_peaks[1])
+        self.up2t = np.take(self.time_values, max2_reverse_upper_peaks[0])
+        self.up2h = np.take(self.ep_t_array, max2_reverse_upper_peaks[0])
 
         # lower_peaks 平均・最大ピーク・準最大ピーク
-        loah = np.average(np.take(self.ep_t_array, lower_peaks))
-        lo1t = np.take(self.time_values, max2_reverse_lower_peaks[1])
-        lo1h = np.take(self.ep_t_array, max2_reverse_lower_peaks[1])
-        lo2t = np.take(self.time_values, max2_reverse_lower_peaks[0])
-        lo2h = np.take(self.ep_t_array, max2_reverse_lower_peaks[0])
+        self.loah = np.average(np.take(self.ep_t_array, lower_peaks))
+        self.lo1t = np.take(self.time_values, max2_reverse_lower_peaks[1])
+        self.lo1h = np.take(self.ep_t_array, max2_reverse_lower_peaks[1])
+        self.lo2t = np.take(self.time_values, max2_reverse_lower_peaks[0])
+        self.lo2h = np.take(self.ep_t_array, max2_reverse_lower_peaks[0])
 
-        # モデル別 observation & reward の算出
-        match self.re_model:
-            case 'USa_v0':
-                observation = np.array([upah])
-                reward = (self.tones**2 - upah) / (self.tones**2)
-            case 'USo_v0':
-                observation = np.array([up1h])
-                reward = (self.tones**2 - up1h) / (self.tones**2)
-            case 'USt_v0':
-                observation = np.array([up1h, up2h])
-                reward = ((self.tones**2 - up1h) + (self.tones**2 - up2h)) / (2 * self.tones**2)
-            case 'UFtSt_v0':
-                observation = np.array([up1h, up2h])
-                reward = ((self.tones**2 - up2h) - (up1h - up2h)) / (self.tones**2)
-            case 'BSa_v0':
-                observation = np.array([upah, loah])
-                reward = ((self.tones**2 - upah) + loah) / (2 * self.tones**2)
-            case 'BSo_v0':
-                observation = np.array([up1h, lo1h])
-                reward = ((self.tones**2 - up1h) + lo1h) / (2 * self.tones**2)
-            case 'BSt_v0':
-                observation = np.array([up1h, up2h, lo1h, lo2h])
-                reward = ((self.tones**2 - up1h) + (self.tones**2 - up2h) + lo1h + lo2h) / (4 * self.tones**2)
-            case 'BFt_v0': # TODO: なんかおかしいので観ること！
-                observation = np.array([up1h, up2h, lo1h, lo2h])
-                reward = ((up1h - lo1h) + (up2h - lo2h)) / (2 * self.tones**2)
-
-            # timeあり
-            case 'USo_v0t':
-                observation = np.array([up1t, up1h])
-                reward = (self.tones**2 - up1h) / (self.tones**2)
-            case 'USt_v0t':
-                observation = np.array([up1t, up1h, up2t, up2h])
-                reward = ((self.tones**2 - up1h) + (self.tones**2 - up2h)) / (2 * self.tones**2)
-            case 'UFtSt_v0t':
-                observation = np.array([up1t, up1h, up2t, up2h])
-                reward = ((self.tones**2 - up2h) - (up1h - up2h)) / (self.tones**2)
-            case 'BSa_v0t':
-                observation = np.array([upah, loah])
-                reward = ((self.tones**2 - upah) + loah) / (2 * self.tones**2)
-            case 'BSo_v0t':
-                observation = np.array([up1t, up1h, lo1t, lo1h])
-                reward = ((self.tones**2 - up1h) + lo1h) / (2 * self.tones**2)
-            case 'BSt_v0t':
-                observation = np.array([up1t, up1h, up2t, up2h, lo1t, lo1h, lo2t, lo2h])
-                reward = ((self.tones**2 - up1h) + (self.tones**2 - up2h) + lo1h + lo2h) / (4 * self.tones**2)
-            case 'BFt_v0t':
-                observation = np.array([up1t, up1h, up2t, up2h, lo1t, lo1h, lo2t, lo2h])
-                reward = ((up1h - lo1h) + (up2h - lo2h)) / (2 * self.tones**2)
-
-            # v1's
-            case 'USo_v1':
-                observation = np.array([up1h])
-                reward = (self.tones+2 - up1h)
-            case 'USt_v1':
-                observation = np.array([up1h, up2h])
-                reward = (self.tones+2 - up1h) + (self.tones+2 - up2h)
-            case 'UFtSt_v1':
-                observation = np.array([up1h, up2h])
-                reward = (self.tones+2 - up1h) + (self.tones+2 - up2h) - (up1h - up2h)
-            case 'BSo_v1':
-                observation = np.array([up1h, lo1h])
-                reward = (self.tones+2 - up1h) + (lo1h - self.tones-2)
-            case 'BSt_v1':
-                observation = np.array([up1h, up2h, lo1h, lo2h])
-                reward = (self.tones+2 - up1h) + (lo1h - self.tones-2) + (self.tones+2 - up2h) + (lo2h - self.tones-2)
-            case 'BFt_v1':
-                observation = np.array([up1h, up2h, lo1h, lo2h])
-                reward = (self.tones+2 - up1h) + (lo1h - self.tones-2) + (self.tones+2 - up2h) + (lo2h - self.tones-2) - (up1h - up2h) - (lo2h - lo1h)
-
-            # to's / tt's
-            case 'USto_v1':
-                observation = np.array([[up1h, up2h]])
-                reward = (self.tones+2 - up1h) + (self.tones+2 - up2h)
-            case 'UFtSto_v1':
-                observation = np.array([[up1h, up2h]])
-                reward = (self.tones+2 - up1h) + (self.tones+2 - up2h) - (up1h - up2h)
-            case 'BSto_v1':
-                observation = np.array([[up1h, up2h, lo1h, lo2h]])
-                reward = (self.tones+2 - up1h) + (lo1h - self.tones-2) + (self.tones+2 - up2h) + (lo2h - self.tones-2)
-            case 'BStt_v1':
-                observation = np.array([[up1h, up2h], [lo1h, lo2h]])
-                reward = (self.tones+2 - up1h) + (lo1h - self.tones-2) + (self.tones+2 - up2h) + (lo2h - self.tones-2)
-            case 'BFto_v1':
-                observation = np.array([[up1h, up2h, lo1h, lo2h]])
-                reward = (self.tones+2 - up1h) + (lo1h - self.tones-2) + (self.tones+2 - up2h) + (lo2h - self.tones-2) - (up1h - up2h) - (lo2h - lo1h)
-            case 'BFtt_v1':
-                observation = np.array([[up1h, up2h], [lo1h, lo2h]])
-                reward = (self.tones+2 - up1h) + (lo1h - self.tones-2) + (self.tones+2 - up2h) + (lo2h - self.tones-2) - (up1h - up2h) - (lo2h - lo1h)
-
-
-            case 'dB_v0':
-                observation = self.theta_k_values.tolist()
-                observation.append(self.papr_db)
-                reward = -self.papr_db
-
-            case 'dB_BMSE_v0':
-                criterion = nn.MSELoss()
-                both_peaks_heights = np.append(upper_peaks_heights, lower_peaks_heights)
-                both_peaks_tensor = torch.tensor(both_peaks_heights, requires_grad=True).double()
-                target_array = np.full(len(both_peaks_heights), self.tones)
-                target_tensor = torch.tensor(target_array).double()
-                loss = criterion(both_peaks_tensor, target_tensor)
-                loss.backward()
-                self.mse = loss.detach().numpy().copy()
-
-                observation = self.theta_k_values.tolist()
-                observation.append(self.papr_db)
-                reward = -self.mse
-
-            case 'dBmD_BMSE_v0':
-                criterion = nn.MSELoss()
-                both_peaks_heights = np.append(upper_peaks_heights, lower_peaks_heights)
-                both_peaks_tensor = torch.tensor(both_peaks_heights, requires_grad=True).double()
-                target_array = np.full(len(both_peaks_heights), self.tones)
-                target_tensor = torch.tensor(target_array).double()
-                loss = criterion(both_peaks_tensor, target_tensor)
-                loss.backward()
-                self.mse = loss.detach().numpy().copy()
-
-                observation = self.theta_k_values.tolist()
-                observation.append(self.papr_db)
-                observation.append(self.mse)
-                observation.append(self.action_div)
-                reward = -self.mse
-
-            case 'dBmDl_BMSE_v0':
-                criterion = nn.MSELoss()
-                both_peaks_heights = np.append(upper_peaks_heights, lower_peaks_heights)
-                both_peaks_tensor = torch.tensor(both_peaks_heights, requires_grad=True).double()
-                target_array = np.full(len(both_peaks_heights), self.tones)
-                target_tensor = torch.tensor(target_array).double()
-                loss = criterion(both_peaks_tensor, target_tensor)
-                loss.backward()
-                self.mse = loss.detach().numpy().copy()
-
-                observation = self.theta_k_values.tolist()
-                observation.append(len(both_peaks_heights))
-                observation.append(self.papr_db)
-                observation.append(self.mse)
-                observation.append(self.action_div)
-                reward = -self.mse
-
-            case 'dB_AMSE_v0':
-                criterion = nn.MSELoss()
-                ep_t_tensor = torch.tensor(self.ep_t_array, requires_grad=True).double()
-                target_array = np.full(len(ep_t_tensor), self.tones)
-                target_tensor = torch.tensor(target_array).double()
-                loss = criterion(ep_t_tensor, target_tensor)
-                loss.backward()
-                self.mse = loss.detach().numpy().copy()
-
-                observation = self.theta_k_values.tolist()
-                observation.append(self.papr_db)
-                reward = -self.mse
-
-            case 'dBD_AMSE_v0':
-                criterion = nn.MSELoss()
-                ep_t_tensor = torch.tensor(self.ep_t_array, requires_grad=True).double()
-                target_array = np.full(len(ep_t_tensor), self.tones)
-                target_tensor = torch.tensor(target_array).double()
-                loss = criterion(ep_t_tensor, target_tensor)
-                loss.backward()
-                self.mse = loss.detach().numpy().copy()
-
-                observation = self.theta_k_values.tolist()
-                observation.append(self.papr_db)
-                observation.append(self.action_div)
-                reward = -self.mse
-
-            case 'dBmD_AMSE_v0':
-                criterion = nn.MSELoss()
-                ep_t_tensor = torch.tensor(self.ep_t_array, requires_grad=True).double()
-                target_array = np.full(len(ep_t_tensor), self.tones)
-                target_tensor = torch.tensor(target_array).double()
-                loss = criterion(ep_t_tensor, target_tensor)
-                loss.backward()
-                self.mse = loss.detach().numpy().copy()
-
-                observation = self.theta_k_values.tolist()
-                observation.append(self.papr_db)
-                observation.append(self.mse)
-                observation.append(self.action_div)
-                reward = -self.mse
-
-            case 'dBmD_AMSE0_v0':
-                criterion = nn.MSELoss()
-                ep_t_tensor = torch.tensor(self.ep_t_array, requires_grad=True).double()
-                target_array = np.full(len(ep_t_tensor), 0)
-                target_tensor = torch.tensor(target_array).double()
-                loss = criterion(ep_t_tensor, target_tensor)
-                loss.backward()
-                self.mse = loss.detach().numpy().copy()
-
-                observation = self.theta_k_values.tolist()
-                observation.append(self.papr_db)
-                observation.append(self.mse)
-                observation.append(self.action_div)
-                reward = -self.mse
-
-            case 'AMSEmD_dB_v0':
-                criterion = nn.MSELoss()
-                both_peaks_heights = np.append(upper_peaks_heights, lower_peaks_heights)
-                both_peaks_tensor = torch.tensor(both_peaks_heights, requires_grad=True).double()
-                target_array = np.full(len(both_peaks_heights), self.tones)
-                target_tensor = torch.tensor(target_array).double()
-                loss = criterion(both_peaks_tensor, target_tensor)
-                loss.backward()
-                self.mse = loss.detach().numpy().copy()
-
-                observation = self.theta_k_values.tolist()
-                observation.append(self.papr_db)
-                observation.append(self.mse)
-                observation.append(self.action_div)
-                reward = -self.papr_db
-
-        # up1h は truncated 用
-        return observation, reward, up1h
+    def _calc_mse(self, input_arr):
+        criterion = nn.MSELoss()
+        input_tensor = torch.tensor(input_arr, requires_grad=True).double()
+        target_array = np.full(len(input_arr), self.tones)
+        target_tensor = torch.tensor(target_array).double()
+        loss = criterion(input_tensor, target_tensor)
+        loss.backward()
+        mse = loss.detach().numpy().copy()
+        return mse

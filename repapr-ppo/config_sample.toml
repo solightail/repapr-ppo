@@ -8,22 +8,36 @@ del_freq = 1.0
 del_time = 0.0001
 amp = 1.0
 init_model = "narahashi"
-manual = ""
-re_model = "dB_AMSE_v0"
+manual = []
 
 [addproc] # 追加処理
+inf_calc = false
 inheritance_theta_k = false
+shrink_action_div = false
 load_data = false
 overwrite = false
 rt_graph = true
 notify = false
 
-[param] # 環境パラメータ
-max_step = 20#*tones        # 1エピソードあたりのステップ上限
-action_div = 0.02           # 初期行動倍率 (値を大きくしすぎると大雑把になる)
-action_div_shrink = 0.5     # 行動倍率を縮小させる倍率
-action_list = [-1, 0, 1]    # 行動の選択肢
-reward_x = 1.0              # スコアを見やすくするための倍数
+[env.observation]
+theta_k = true
+papr_db = true
+action_div = true
+peaks_height = false        # calc_peaks
+len_both_peaks = false      # calc_peaks
+reward = true
+
+[env.reward]
+eval_metrics = "mse"
+eval_part = "all"
+
+[env.param] # 環境パラメータ
+n_calc = 300                    # 計算上限
+n_inherit = 30                  # 継承上限
+max_step = 20#*tones            # 1エピソードあたりのステップ上限
+action_div = 0.02               # 初期行動倍率 (値を大きくしすぎると大雑把になる)
+action_div_shrink_scale = 0.9   # 行動倍率を縮小させる倍率
+action_list = [-1, 0, 1]        # 行動の選択肢
 
 [hyper] # ハイパーパラメータ
 N = 10
