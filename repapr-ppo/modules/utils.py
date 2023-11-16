@@ -1,3 +1,4 @@
+import os
 import glob
 import numpy as np
 import matplotlib.pyplot as plt
@@ -10,6 +11,12 @@ def new_filename(path, filename) -> str:
     while len(glob.glob(f"{path}/{filename}-{i}.*")) > 0:
         i += 1
     return f'{path}/{filename}-{i}'
+
+def new_result_path(path, foldername) -> str:
+    i = 1
+    while os.path.exists(f'{path}/{foldername}-{i}'):
+        i += 1
+    return f'{path}/{foldername}-{i}', f'{foldername}-{i}'
 
 
 def rt_plot_init(time_values, ept_values, papr_db, mse, action_div):
@@ -40,7 +47,7 @@ def rt_plot_reload_text_bl(text, index, best_papr_db, action_div, setcolor):
     if action_div is None:
         text.set_text(f'{index} Best PAPR: {best_papr_db:.03f} dB')
     else:
-        text.set_text(f'{index} Best PAPR: {best_papr_db:.03f} dB / action_div: x{action_div:.06f}')
+        text.set_text(f'{index+1} Best PAPR: {best_papr_db:.03f} dB / action_div: x{action_div:.06f}')
     text.set_color(setcolor)
 
 def rt_plot_reload_text_br(text, papr_db, mse, setcolor):

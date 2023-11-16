@@ -125,6 +125,27 @@ class Agent:
         self.critic = CriticNetwork(input_dims, alpha, chkpt_dir=chkpt_dir)
         self.memory = PPOMemory(batch_size)
 
+        # reset 用に初期設定値を保存
+        self.init_n_actions = n_actions
+        self.init_input_dims = input_dims
+        self.init_gamma = gamma
+        self.init_alpha = alpha
+        self.init_gae_lambda = gae_lambda
+        self.init_policy_clip = policy_clip
+        self.init_batch_size = batch_size
+        self.init_n_epochs = n_epochs
+        self.init_chkpt_dir = chkpt_dir
+
+    def reset(self):
+        self.gamma = self.init_gamma
+        self.policy_clip = self.init_policy_clip
+        self.n_epochs = self.init_n_epochs
+        self.gae_lambda = self.init_gae_lambda
+
+        self.actor = ActorNetwork(self.init_n_actions, self.init_input_dims, self.init_alpha, chkpt_dir=self.init_chkpt_dir)
+        self.critic = CriticNetwork(self.init_input_dims, self.init_alpha, chkpt_dir=self.init_chkpt_dir)
+        self.memory = PPOMemory(self.init_batch_size)
+
     def remember(self, state, action, probs, vals, reward, terminated, truncated):
         self.memory.store_memory(state, action, probs, vals, reward, terminated, truncated)
 

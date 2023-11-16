@@ -1,5 +1,6 @@
+from .conf import Conf
 from . import algorithms as algo
-from . import calc
+from .calc import Formula, FEPtA
 
 import numpy as np
 import gym.spaces
@@ -8,24 +9,22 @@ import torch.nn as nn
 from scipy.signal import find_peaks
 
 class MtEnv(gym.Env):
-    def __init__(self, tones: int, del_freq:float, del_time:float, amp:float,
-                 max_step: int, action_div: float, action_list: list,
-                 init_model: str, manual: list,
-                 observation_items: dict, eval_metrics: str, eval_model: str):
+    def __init__(self):
         super().__init__()
 
-        self.tones: int = tones
-        self.del_freq: float = del_freq
-        self.del_time: float = del_time
-        self.amp: float = amp
-        self.max_step: int = max_step
-        self.action_div: float = action_div
-        self.action_list: list = action_list
-        self.init_model: str = init_model
-        self.manual: float = manual
-        self.observation_items: dict = observation_items
-        self.eval_metrics: str = eval_metrics
-        self.eval_model: str = eval_model
+        cfg = Conf()
+        self.tones: int = cfg.tones
+        self.del_freq: float = cfg.del_freq
+        self.del_time: float = cfg.del_time
+        self.amp: float = cfg.amp
+        self.max_step: int = cfg.max_step
+        self.action_div: float = cfg.action_div
+        self.action_list: list = cfg.action_list
+        self.init_model: str = cfg.init_model
+        self.manual: float = cfg.manual
+        self.observation_items: dict = cfg.observation_items
+        self.eval_metrics: str = cfg.eval_metrics
+        self.eval_model: str = cfg.eval_model
 
         self.theta_k_values: np.array[float] = self._init_theta_k_values()
         self.time_values: np.array[float] = np.arange(0.0, 1.0 + self.del_time, self.del_time)
@@ -42,7 +41,7 @@ class MtEnv(gym.Env):
         self.input_dims = 0
         if self.observation_items['theta_k'] is True:
             self.input_dims += self.tones
-            for _ in range(len(self.tones)):
+            for _ in range(self.tones):
                 observation_low.append(np.min(self.theta_k_values))
                 observation_high.append(np.max(self.theta_k_values))
                 observation_mean.append((np.min(self.theta_k_values) + np.max(self.theta_k_values))/2)
@@ -199,8 +198,8 @@ class MtEnv(gym.Env):
         return algo_context.calc_algo()
 
     def _eptarr(self):
-        formula = calc.Formula(self.tones, self.del_freq, self.amp)
-        fepta = calc.FEPtA(formula, self.del_time)
+        formula = Formula(self.tones, self.del_freq, self.amp)
+        fepta = FEPtA(formula, self.del_time)
         return fepta.get_ept_papr(self.theta_k_values)
 
 
@@ -235,17 +234,19 @@ class MtEnv(gym.Env):
             case 'mse':
                 match self.eval_model:
                     case 'AMSE_v0':
-                        reward = -self._calc_mse(self.ep_t_array)
+                        self.mse = self._calc_mse(self.ep_t_array)
+                        reward = -self.mse
                     case 'BMSE_v0':
                         if self.known_peaks is False: self._calc_peaks()
                         both_peaks_heights = np.append(self.upper_peaks_heights, self.lower_peaks_heights)
-                        reward = -self._calc_mse(both_peaks_heights)
+                        self.mse = self._calc_mse(both_peaks_heights)
+                        reward = -self.mse
         return reward
 
     def _observation(self, reward=None):
         observation = []
         if self.observation_items['theta_k'] is True:
-            observation.append(self.theta_k_values)
+            observation = self.theta_k_values.tolist()
         if self.observation_items['papr_db'] is True:
             observation.append(self.papr_db)
         if self.observation_items['action_div'] is True:

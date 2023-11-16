@@ -13,6 +13,7 @@ manual = []
 [addproc] # 追加処理
 inf_calc = false
 inheritance_theta_k = false
+inheritance_reset = false
 shrink_action_div = false
 load_data = false
 overwrite = false
@@ -49,6 +50,9 @@ alpha = 0.0003
 avg_init = 25
 avg_calc = 50
 
-[line]
+[output]
+filepath = "repapr-ppo/out"
+
+[output.line]
 channel_token = ""
 user_id = ""
