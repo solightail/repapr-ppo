@@ -301,10 +301,10 @@ class MtEnv(gym.Env):
 
         # lower_peaks 平均・最大ピーク・準最大ピーク
         self.loah = np.average(np.take(self.ep_t_array, lower_peaks))
-        self.lo1t = np.take(self.time_values, max2_reverse_lower_peaks[1])
-        self.lo1h = np.take(self.ep_t_array, max2_reverse_lower_peaks[1])
-        self.lo2t = np.take(self.time_values, max2_reverse_lower_peaks[0])
-        self.lo2h = np.take(self.ep_t_array, max2_reverse_lower_peaks[0])
+        self.lo1t = np.take(self.time_values, max2_reverse_lower_peaks[0])
+        self.lo1h = np.take(self.ep_t_array, max2_reverse_lower_peaks[0])
+        self.lo2t = np.take(self.time_values, max2_reverse_lower_peaks[1])
+        self.lo2h = np.take(self.ep_t_array, max2_reverse_lower_peaks[1])
 
     def _calc_mse(self, input_arr):
         criterion = nn.MSELoss()
