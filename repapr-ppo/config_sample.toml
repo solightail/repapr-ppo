@@ -7,11 +7,11 @@ tones = 4
 del_freq = 1.0
 del_time = 0.001
 amp = 1.0
-init_model = "narahashi"
+init_model = "all0"
 manual = []
 
 [addproc] # 追加処理
-inf_calc = true
+ignore_n_epi = true
 inheritance_theta_k = true
 inheritance_reset = false
 shrink_action_div = true
@@ -26,29 +26,29 @@ papr_db = true
 action_div = true
 peaks_height = false        # calc_peaks
 len_both_peaks = false      # calc_peaks
-reward = true
+reward = false
 
 [env.reward]
 eval_metrics = "mse"
 eval_model = "AMSE_v0"
 
 [env.param] # 環境パラメータ
-n_calc = 300                    # 計算上限
+n_calc = 10000                  # 計算上限 (ignore_n_epiがTrueでも有効)
 n_inherit = 30                  # 継承上限
-max_step = 20#*tones            # 1エピソードあたりのステップ上限
-action_div = 0.02               # 初期行動倍率 (値を大きくしすぎると大雑把になる)
+max_step = 5#*tones             # 1エピソードあたりのステップ上限
+action_div = 0.25               # 初期行動倍率 (値を大きくしすぎると大雑把になる)
 action_div_shrink_scale = 0.9   # 行動倍率を縮小させる倍率
 action_list = [-1, 0, 1]        # 行動の選択肢
 
 [hyper] # ハイパーパラメータ
-N = 10
-batch_size = 5
-n_epochs = 4
-alpha = 0.0003
+N = 32
+batch_size = 4
+n_epochs = 3
+alpha = 3e-5
 
 [score] # スコア処理パラメータ
 avg_init = 25
-avg_calc = 50
+avg_calc = 10
 
 [output]
 filepath = "repapr-ppo/out"
