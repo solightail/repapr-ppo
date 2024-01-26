@@ -3,7 +3,7 @@ from . import algorithms as algo
 from .calc import Formula, FEPtA
 
 import numpy as np
-import gym.spaces
+import gymnasium as gym
 import torch
 import torch.nn as nn
 from scipy.signal import find_peaks
@@ -142,8 +142,8 @@ class MtEnv(gym.Env):
 
         # --- observation & reward ---
         self.known_peaks = False
+        reward = self._reward()
         if self.observation_items['reward'] is True:
-            reward = self._reward()
             observation = self._observation(reward)
         else:
             observation = self._observation()

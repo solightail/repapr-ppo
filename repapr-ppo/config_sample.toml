@@ -5,19 +5,19 @@ title = "repapr-ppo config file"
 [input] # 入力変数
 tones = 4
 del_freq = 1.0
-del_time = 0.0001
+del_time = 0.001
 amp = 1.0
 init_model = "narahashi"
 manual = []
 
 [addproc] # 追加処理
-inf_calc = false
-inheritance_theta_k = false
+inf_calc = true
+inheritance_theta_k = true
 inheritance_reset = false
-shrink_action_div = false
+shrink_action_div = true
 load_data = false
 overwrite = false
-rt_graph = true
+rt_graph = false
 notify = false
 
 [env.observation]

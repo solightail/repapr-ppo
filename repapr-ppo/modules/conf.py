@@ -23,7 +23,7 @@ class Conf(object):
             self.manual: list = cfg['input']['manual']
 
             # 追加処理
-            self.inf_calc: bool = cfg['addproc']['inf_calc']
+            self.ignore_n_epi: bool = cfg['addproc']['ignore_n_epi']
             self.inheritance_theta_k: bool = cfg['addproc']['inheritance_theta_k']
             self.inheritance_reset: bool = cfg['addproc']['inheritance_reset']
             self.shrink_action_div: bool = cfg['addproc']['shrink_action_div']

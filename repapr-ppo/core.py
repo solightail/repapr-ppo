@@ -77,14 +77,15 @@ def program():
 
 
     # エピソード回数の決定
-    if cfg.inf_calc is True:
-        epi_limit = 5000
+    if cfg.ignore_n_epi is True:
+        epi_limit = cfg.n_calc
         if cfg.inheritance_theta_k is True:
             limit = cfg.n_inherit
         else:
             limit = np.inf
     else:
         epi_limit = cfg.n_calc
+
 
     while not (n_epi >= epi_limit or index >= limit):
         ''' エピソード 前処理 '''
@@ -152,17 +153,21 @@ def program():
             if cfg.inheritance_theta_k is True:
                 if cfg.shrink_action_div is True:
                     env.action_div = env.action_div*cfg.action_div_shrink_scale
+                    print(f'\n----- ReNew: {index+1} / action_div: {env.action_div:.04f} / PAPR: {best_papr_db:.04f} -----')
+                else:
+                    print(f'\n----- ReNew: {index+1} / PAPR: {best_papr_db:.04f} -----')
                 inheritance = True
                 inheritance_theta_k_values = theta_k_epi_list[np.argmin(papr_db_epi_list)]
-                rt_plot_reload_text_bl(plot_text_bl, index, best_papr_db, env.action_div, 'red')
+                if cfg.rt_graph is True: rt_plot_reload_text_bl(plot_text_bl, index, best_papr_db, env.action_div, 'red')
             else:
-                rt_plot_reload_text_bl(plot_text_bl, index, best_papr_db, None, 'red')
+                print(f'\n----- ReNew: {index+1} / PAPR: {best_papr_db:.04f} -----')
+                if cfg.rt_graph is True: rt_plot_reload_text_bl(plot_text_bl, index, best_papr_db, None, 'red')
         else:
             if cfg.inheritance_theta_k is True:
-                if cfg.inf_calc is True: index -= 1
-                rt_plot_reload_text_bl(plot_text_bl, index, best_papr_db, env.action_div, 'gray')
+                if cfg.ignore_n_epi is True: index -= 1
+                if cfg.rt_graph is True: rt_plot_reload_text_bl(plot_text_bl, index, best_papr_db, env.action_div, 'gray')
             else:
-                rt_plot_reload_text_bl(plot_text_bl, index, best_papr_db, None, 'gray')
+                if cfg.rt_graph is True: rt_plot_reload_text_bl(plot_text_bl, index, best_papr_db, None, 'gray')
 
         # スコアを記録リストへ追加
         score_history.append(score)
