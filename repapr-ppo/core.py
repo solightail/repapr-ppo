@@ -52,7 +52,7 @@ def program():
     env = MtEnv()
     # エージェント インスタンス作成
     agent = Agent(n_actions=env.n_action, batch_size=cfg.batch_size, alpha=cfg.alpha,
-                  n_epochs=cfg.n_epochs, input_dims=env.input_dims, chkpt_dir=chkpt_dir)
+                  n_epochs=cfg.n_epochs, input_dims=env.input_dims, chkpt_dir=result_dir)
 
     # 学習データのロード
     if os.path.exists(f"{chkpt_dir}/actor_torch_ppo") and\
@@ -66,8 +66,8 @@ def program():
         lines, plot_text_bl, plot_text_br = rt_plot_init(env.time_values, env.ep_t_array, env.papr_db, env.mse, env.action_div)
 
     # 出力データ配列の準備
-    theta_k_epi_list, act_epi_list, max_ep_t_epi_list, \
-        papr_w_epi_list, papr_db_epi_list = [], [], [], [], []
+    theta_k_epi_list, act_epi_list, mse_epi_list, max_ep_t_epi_list, \
+        papr_w_epi_list, papr_db_epi_list = [], [], [], [], [], []
 
     # 処理開始前 LINE 通知
     start = datetime.now()
@@ -135,6 +135,7 @@ def program():
             # csv 出力用に配列へデータの追加
             act_epi_list.append(action)
             theta_k_epi_list.append(env.theta_k_values.tolist())
+            mse_epi_list.append(env.mse)
             max_ep_t_epi_list.append(env.max_ep_t)
             papr_w_epi_list.append(env.papr_w)
             papr_db_epi_list.append(env.papr_db)
@@ -189,8 +190,8 @@ def program():
         print(f"episode {n_epi}  score {score:.03f}  avg score {avg_score:.03f}  time_steps {n_steps}  learning_steps {learn_iters}")
 
         # csv 出力用に配列へデータの追加
-        write_csv(n_epi, score, avg_score, act_epi_list, theta_k_epi_list, max_ep_t_epi_list, 
-                  papr_w_epi_list, papr_db_epi_list, n_steps, cfg.max_step, csv_file)
+        write_csv(n_epi, score, avg_score, act_epi_list, theta_k_epi_list, mse_epi_list,
+                  max_ep_t_epi_list, papr_w_epi_list, papr_db_epi_list, n_steps, cfg.max_step, csv_file)
 
         # 継承時 学習の初期化
         if cfg.inheritance_reset is True and inheritance is True:
@@ -205,8 +206,8 @@ def program():
         index += 1
         inheritance = False
         # 出力データ配列の初期化
-        theta_k_epi_list, act_epi_list, max_ep_t_epi_list, \
-            papr_w_epi_list, papr_db_epi_list = [], [], [], [], []
+        theta_k_epi_list, act_epi_list, mse_epi_list, max_ep_t_epi_list, \
+            papr_w_epi_list, papr_db_epi_list = [], [], [], [], [], []
 
 
     ''' 全エピソード終了 後処理'''

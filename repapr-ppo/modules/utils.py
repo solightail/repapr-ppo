@@ -73,7 +73,7 @@ def plot_learning_curve(x, scores, figure_file):
     plt.savefig(figure_file)
 
 
-def write_csv(epi, sco, avgsco, act_list, tk_list, m_ept_list, m_pw_list, m_pd_list, n_steps, max_step, path):
+def write_csv(epi, sco, avgsco, act_list, tk_list, mse_list, m_ept_list, m_pw_list, m_pd_list, n_steps, max_step, path):
     s_index = epi*max_step
     df1 = pd.DataFrame({
         'episode': epi,
@@ -83,6 +83,7 @@ def write_csv(epi, sco, avgsco, act_list, tk_list, m_ept_list, m_pw_list, m_pd_l
     df2 = pd.DataFrame({
         'action': act_list,
         'theta_k': tk_list,
+        'MSE': mse_list,
         'EP(t) [W]': m_ept_list,
         'PAPR [W]': m_pw_list,
         'PAPR [dB]': m_pd_list

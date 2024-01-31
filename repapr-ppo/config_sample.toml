@@ -5,7 +5,7 @@ title = "repapr-ppo config file"
 [input] # 入力変数
 tones = 4
 del_freq = 1.0
-del_time = 0.001
+del_time = 0.002
 amp = 1.0
 init_model = "all0"
 manual = []
@@ -34,11 +34,11 @@ eval_model = "AMSE_v0"
 
 [env.param] # 環境パラメータ
 n_calc = 10000                  # 計算上限 (ignore_n_epiがTrueでも有効)
-n_inherit = 30                  # 継承上限
+n_inherit = 70                  # 継承上限
 max_step = 5#*tones             # 1エピソードあたりのステップ上限
 action_div = 0.25               # 初期行動倍率 (値を大きくしすぎると大雑把になる)
-action_div_shrink_scale = 0.9   # 行動倍率を縮小させる倍率
-action_list = [-1, 0, 1]        # 行動の選択肢
+action_div_shrink_scale = 0.875 # 行動倍率を縮小させる倍率
+action_list = [-1, 1]        # 行動の選択肢
 
 [hyper] # ハイパーパラメータ
 N = 32
