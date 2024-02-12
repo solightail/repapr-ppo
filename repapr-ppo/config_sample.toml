@@ -3,56 +3,62 @@
 title = "repapr-ppo config file"
 
 [input] # 入力変数
-tones = 4
-del_freq = 1.0
-del_time = 0.002
-amp = 1.0
-init_model = "all0"
-manual = []
+tones = 4                       # 入力波数
+del_freq = 1.0                  # 各トーンの周波数間隔
+del_time = 0.002                # 瞬時包絡線電力 EP(t) 計算間隔
+amp = 1.0                       # 振幅
+init_model = "all0"             # 探索初期位相 モデル (all0 / narahashi / newman / random / manual)
+manual = []                     # 探索初期位相 マニュアル入力
 
 [addproc] # 追加処理
-ignore_n_epi = true
-inheritance_theta_k = true
-inheritance_reset = false
-shrink_action_div = true
-load_data = false
-overwrite = false
-rt_graph = false
-notify = false
+ignore_n_epi = true             # [探索時] エピソード数上限の無視（現在は利用不可）
+inheritance_theta_k = true      # [PAPR更新時] 位相継承
+inheritance_reset = false       # [PAPR更新時] 学習リセット
+shrink_action_div = true        # [PAPR更新時] 調節幅縮小
+load_data = false               # [探索前] 学習データのロード
+overwrite = false               # [探索前] 学習データの上書き
+rt_graph = false                # [探索時] リアルタイムグラフ表示
+notify = false                  # [探索後] LINE通知
 
-[env.observation]
-theta_k = true
-papr_db = true
-action_div = true
-peaks_height = false        # calc_peaks
-len_both_peaks = false      # calc_peaks
-reward = false
+[env.observation] # 状態に含む情報
+theta_k = true                  # 位相
+papr_db = true                  # PAPR値
+action_div = true               # 調節幅
+peaks_height = false            # [calc_peaks処理あり] ピークの高さ（上下2値ずつ）
+len_both_peaks = false          # [calc_peaks処理あり] ピーク数
+reward = false                  # 報酬
 
-[env.reward]
-eval_metrics = "mse"
-eval_model = "AMSE_v0"
+[env.reward] # 報酬に使用するモデル
+# eval_metrics: "db"
+#   eval_model: ["Raw", "Double", "Square"]
+# eval_metrics: "abs"
+#   eval_model: ["USo_v1", "USt_v1", "UFtSt_v1", "BSo_v1", "BSt_v1", "BFt_v1"]
+# eval_metrics: "mse"
+#   eval_model: ["AMSE_v0", "BMSE_v0"]
+eval_metrics = "mse"            # 種別
+eval_model = "AMSE_v0"          # 計算モデル
 
 [env.param] # 環境パラメータ
-n_calc = 100000                 # 計算上限 (ignore_n_epiがTrueでも有効)
+n_calc = 100000                 # 総ステップ上限（現在はignore_n_epiがTrueでも有効）
 n_inherit = 70                  # 継承上限
 max_step = 5#*tones             # 1エピソードあたりのステップ上限
-action_div = 0.25               # 初期行動倍率 (値を大きくしすぎると大雑把になる)
-action_div_shrink_scale = 0.875 # 行動倍率を縮小させる倍率
-action_list = [-1, 1]           # 行動の選択肢
+action_div = 0.25               # [調節幅] 初期調節幅（値を大きくしすぎると大雑把になる）
+action_div_shrink_scale = 0.875 # [調節幅] 縮小倍率
+action_list = [-1, 1]           # 行動選択肢
 
 [hyper] # ハイパーパラメータ
-N = 32
-batch_size = 4
-n_epochs = 3
-alpha = 7e-5
+N = 32                          # 学習 必要ステップ数
+batch_size = 4                  # ミニバッチサイズ
+n_epochs = 3                    # 勾配計算回数（学習の進みに多少影響）
+alpha = 7e-5                    # 学習率
 
-[score] # スコア処理パラメータ
-avg_init = 25
-avg_calc = 10
+[score] # 総報酬パラメータ
+avg_init = 25                   # 総報酬計算の停止エピソード数（総報酬の安定化）
+avg_calc = 10                   # 総報酬に含むエピソード数
 
-[output]
-filepath = "repapr-ppo/out"
+[output] # 出力設定
+filepath = "repapr-ppo/out"     # 計算結果 出力先
 
-[output.line]
+[output.line] # LINEトークン設定
 channel_token = ""
 user_id = ""
