@@ -33,18 +33,18 @@ eval_metrics = "mse"
 eval_model = "AMSE_v0"
 
 [env.param] # 環境パラメータ
-n_calc = 10000                  # 計算上限 (ignore_n_epiがTrueでも有効)
+n_calc = 100000                 # 計算上限 (ignore_n_epiがTrueでも有効)
 n_inherit = 70                  # 継承上限
 max_step = 5#*tones             # 1エピソードあたりのステップ上限
 action_div = 0.25               # 初期行動倍率 (値を大きくしすぎると大雑把になる)
 action_div_shrink_scale = 0.875 # 行動倍率を縮小させる倍率
-action_list = [-1, 1]        # 行動の選択肢
+action_list = [-1, 1]           # 行動の選択肢
 
 [hyper] # ハイパーパラメータ
 N = 32
 batch_size = 4
 n_epochs = 3
-alpha = 3e-5
+alpha = 7e-5
 
 [score] # スコア処理パラメータ
 avg_init = 25

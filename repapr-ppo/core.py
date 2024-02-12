@@ -4,7 +4,7 @@ import numpy as np
 from datetime import datetime
 
 from .modules.conf import Conf
-from .modules.repapr_ppo_torch import Agent
+from .modules.ppo import Agent
 from .modules.environments import MtEnv
 from .modules.utils import rt_plot_init, rt_plot_reload_line, \
     rt_plot_reload_text_bl, rt_plot_reload_text_br, pause_plot, close_plot, \
@@ -39,13 +39,13 @@ def program():
 
     # 学習モデル保存 準備
     if not os.path.exists(chkpt_dir):
-        os.mkdir(chkpt_dir)
+        os.makedirs(chkpt_dir, exist_ok=True)
     else:
         if os.path.exists(f'{chkpt_dir}/actor_torch_ppo') and cfg.overwrite is False:
             raise FileExistsError("The file already exists. Make the overwrite true or use a different algorithm.")
     # 結果保存 準備
     if not os.path.exists(result_dir):
-        os.mkdir(result_dir)
+        os.makedirs(result_dir, exist_ok=True)
 
 
     # 環境構築

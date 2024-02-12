@@ -4,7 +4,6 @@ venv
 tmp
 plots
 backup
-repapr-ppo/out/data/miss_max/
 repapr-ppo/out/*
 
 config.toml
