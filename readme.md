@@ -22,7 +22,7 @@ pip install torch torchvision torchaudio gymnasium matplotlib pandas scipy
 ```
 3. 設定ファイルの準備
 ```bash
-copy config_sample.toml config.toml
+copy repapr-ppo\config_sample.toml repapr-ppo\config.toml
 ```
 4. コマンドラインにて実行
 ```bash
