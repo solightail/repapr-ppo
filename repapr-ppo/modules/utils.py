@@ -73,6 +73,15 @@ def plot_learning_curve(x, scores, figure_file):
     plt.savefig(figure_file)
 
 
+def write_txt(renew, action_div, papr, epi, sco, avgsco, Tstep, Lstep, time, path):
+    text = f" \
+----- ReNew: {renew} / action_div: {action_div} / PAPR: {papr} -----\n \
+episode {epi}  score {sco}  avg score {avgsco}  time_steps {Tstep}  learning_steps {Lstep}\n\n \
+PAPR[dB]: {papr}  経過時間: {time} \
+"
+    with open(path, encoding="utf-8", mode='w') as file:
+        file.write(text)
+
 def write_csv(epi, sco, avgsco, act_list, tk_list, mse_list, m_ept_list, m_pw_list, m_pd_list, n_steps, max_step, path):
     s_index = epi*max_step
     df1 = pd.DataFrame({

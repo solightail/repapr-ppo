@@ -8,7 +8,7 @@ from .modules.ppo import Agent
 from .modules.environments import MtEnv
 from .modules.utils import rt_plot_init, rt_plot_reload_line, \
     rt_plot_reload_text_bl, rt_plot_reload_text_br, pause_plot, close_plot, \
-    plot_learning_curve, write_csv, send_line, new_result_path
+    plot_learning_curve, write_csv, write_txt, send_line, new_result_path
 
 def program():
     """ Core Program """
@@ -24,6 +24,7 @@ def program():
     score_save = []                     # スコア記録（継承時プロット用）
 
     n_epi = 0                           # エピソード数
+    re_epi = 0                          # 継承後エピソード数
     index = 0                           # 周回数
     learn_iters = 0                     # 学習数
     avg_score = 0                       # 平均スコア
@@ -35,6 +36,7 @@ def program():
     chkpt_dir: str = f'{output_dir}/{dir_name}'
     result_dir, result_dir_name = new_result_path(chkpt_dir, 'result')
     figure_file = f'{result_dir}/{result_dir_name}.svg'
+    txt_file = f'{result_dir}/{result_dir_name}.txt'
     csv_file = f'{result_dir}/{result_dir_name}.csv'
 
     # 学習モデル保存 準備
@@ -182,9 +184,14 @@ def program():
                     best_score = avg_score
                     agent.save_models()
         else:
-            if avg_score > best_score:
-                best_score = avg_score
-                agent.save_models()
+            # 継承を利用している場合、各継承後に学習保存を行わない（スコア更新は継続する）
+            if re_epi >= cfg.score_avg_init:
+                if avg_score > best_score:
+                    best_score = avg_score
+                    agent.save_models()
+            else:
+                if avg_score > best_score:
+                    best_score = avg_score
 
         # CLI 表示
         print(f"episode {n_epi}  score {score:.03f}  avg score {avg_score:.03f}  time_steps {n_steps}  learning_steps {learn_iters}")
@@ -193,8 +200,10 @@ def program():
         write_csv(n_epi, score, avg_score, act_epi_list, theta_k_epi_list, mse_epi_list,
                   max_ep_t_epi_list, papr_w_epi_list, papr_db_epi_list, n_steps, cfg.max_step, csv_file)
 
-        # 継承時 学習の初期化
-        if cfg.inheritance_reset is True and inheritance is True:
+        # 継承時 各種初期化
+        if inheritance is True:
+            re_epi = 0
+        if cfg.inheritance_reset is True and inheritance is True: # 学習の初期化
             score_save += score_history
             score_history = []
             avg_score = 0
@@ -203,6 +212,7 @@ def program():
 
         # ループ前 初期化
         n_epi += 1
+        re_epi += 1
         index += 1
         inheritance = False
         # 出力データ配列の初期化
@@ -211,6 +221,7 @@ def program():
 
 
     ''' 全エピソード終了 後処理'''
+    end = datetime.now()
     # RealTime グラフ表示の終了
     close_plot()
     # 学習結果 グラフ保存
@@ -220,11 +231,13 @@ def program():
     else:
         x = [n_epi+1 for n_epi in range(len(score_save))]
         plot_learning_curve(x, score_save, figure_file)
+    # 学習結果 テキスト保存
+    write_txt(index, env.action_div, best_papr_db, n_epi-1, score, avg_score, n_steps, learn_iters, end-start, txt_file)
+
     # LINE 通知
-    end = datetime.now()
-    message = f"repapr-ppo / {end.time().isoformat(timespec='seconds')}\n{dir_name}\n全てのエピソードの演算が完了しました。出力データより解析を行ってください。"
+    message = f"repapr-ppo / {end.time().isoformat(timespec='seconds')}\n{dir_name}\n全てのエピソードの演算が完了しました。 / PAPR[dB]: {best_papr_db}\n出力データより解析を行ってください。"
     if cfg.notify is True:
         send_line(cfg.line['channel_token'], cfg.line['user_id'], message)
     # 経過時間表示
     print()
-    print(f'PAPR[dB]: {best_papr_db}  経過時間:{end-start}')
+    print(f'PAPR[dB]: {best_papr_db}  経過時間: {end-start}')

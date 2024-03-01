@@ -39,7 +39,7 @@ eval_metrics = "mse"            # 種別
 eval_model = "AMSE_v0"          # 計算モデル
 
 [env.param] # 環境パラメータ
-n_calc = 100000                 # 総ステップ上限（現在はignore_n_epiがTrueでも有効）
+n_calc = 20000                 # 総ステップ上限（現在はignore_n_epiがTrueでも有効）
 n_inherit = 70                  # 継承上限
 max_step = 5#*tones             # 1エピソードあたりのステップ上限
 action_div = 0.25               # [調節幅] 初期調節幅（値を大きくしすぎると大雑把になる）
@@ -53,8 +53,8 @@ n_epochs = 3                    # 勾配計算回数（学習の進みに多少�
 alpha = 7e-5                    # 学習率
 
 [score] # 総報酬パラメータ
-avg_init = 25                   # 総報酬計算の停止エピソード数（総報酬の安定化）
-avg_calc = 10                   # 総報酬に含むエピソード数
+avg_init = 100                  # 総報酬計算の停止エピソード数（総報酬の安定化）
+avg_calc = 100                  # 総報酬に含むエピソード数
 
 [output] # 出力設定
 filepath = "repapr-ppo/out"     # 計算結果 出力先
